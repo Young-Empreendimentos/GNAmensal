@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Financeiro - Com Pró-labore Fixo</title>
+    <title>Dashboard Financeiro 2025</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
@@ -112,7 +112,6 @@
             background-color: var(--color-dark-gray-main);
             color: white;
         }
-        .highlight-row { font-weight: bold; background-color: #fff3e0; }
         .multiselect { position: relative; display: inline-block; }
         .multiselect-options {
             display: none;
@@ -141,7 +140,7 @@
 </head>
 <body>
 
-    <div id="loader">Carregando e processando dados...</div>
+    <div id="loader">Carregando dados...</div>
 
     <div class="page-wrapper">
         <div class="filters">
@@ -155,16 +154,16 @@
             </div>
             <div class="filter-item">
                 <input type="checkbox" id="include-prolabore-filter" checked>
-                <label for="include-prolabore-filter">Somar Pró-labore Fixo (Diretoria CC 1000)</label>
+                <label for="include-prolabore-filter">Incluir Pró-labore (Fixo)</label>
             </div>
         </div>
 
         <div id="summary-panel"></div>
 
         <div class="tab-nav">
-            <button class="tab-button active" data-tab="cc1000">CC 1000 (Empresa 1)</button>
-            <button class="tab-button" data-tab="cc2000">CC 2000 (Empresa 2 Matriz)</button>
-            <button class="tab-button" data-tab="cc2002">CC 2002 (Empresa 2 Novos Negócios)</button>
+            <button class="tab-button active" data-tab="cc1000">CC 1000</button>
+            <button class="tab-button" data-tab="cc2000">CC 2000</button>
+            <button class="tab-button" data-tab="cc2002">CC 2002</button>
             <button class="tab-button" data-tab="total">Total Geral</button>
             <button class="tab-button" data-tab="chart">Gráfico Operacional</button>
             <button class="tab-button" data-tab="excluded">Itens Excluídos</button>
@@ -205,14 +204,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const loader = document.getElementById('loader');
     const pageWrapper = document.querySelector('.page-wrapper');
 
-    // --- FUNÇÃO DE PARSE ---
-    // Corrige valores com "T" e formata corretamente
+    // --- PARSER DE MOEDA MAIS ROBUSTO ---
+    // Remove tudo que não for dígito, vírgula ou sinal de menos
+    // Resolve o problema do "T" e outros caracteres invisíveis
     function parseCurrency(currencyString) {
         if (!currencyString) return 0;
         let str = String(currencyString);
-        str = str.replace(/[A-Za-z\$\s]/g, ''); // Remove letras e R$
-        str = str.replace(/\./g, ''); // Remove pontos de milhar
-        str = str.replace(',', '.'); // Troca vírgula por ponto
+        
+        // Mantém apenas números, vírgula e hífen (para negativos)
+        str = str.replace(/[^\d,-]/g, ''); 
+        
+        // Se tiver mais de uma vírgula ou formato inválido, tenta limpar mais
+        if (str === '' || str === '-') return 0;
+
+        // Formato brasileiro: 1.000,00 -> o regex removeu o ponto, virou 1000,00
+        // Agora troca vírgula por ponto para o JS entender
+        str = str.replace(',', '.'); 
+        
         const val = Number(str);
         return isNaN(val) ? 0 : val;
     }
@@ -240,7 +248,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 centroCusto: d['Centro de Custo'] ? d['Centro de Custo'].trim() : '',
                 credor: d.Credor,
                 planoFinanceiro: d['Plano financeiro'],
-                valor: parseCurrency(d.Valor)
+                valor: parseCurrency(d.Valor) // Usa o novo parser agressivo
             })).filter(d => d.valor !== 0);
 
             const excluidosTextData = await d3.text(excluidosUrl + '&_=' + cacheBuster);
@@ -259,7 +267,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const minDataDados = new Date(Math.min.apply(null, validDates));
                 const maxDataDados = new Date(Math.max.apply(null, validDates));
                 
-                // Configuração para o último trimestre de 2025 conforme seu pedido
+                // Trimestre Q4 2025
                 const defaultStart = new Date(2025, 9, 1); // 01/10/2025
                 const defaultEnd = new Date(2025, 11, 31); // 31/12/2025
 
@@ -280,7 +288,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         } catch (error) {
             console.error('Erro:', error);
-            loader.textContent = 'Falha ao carregar os dados. Verifique a conexão.';
+            loader.textContent = 'Falha ao carregar os dados. Verifique o link das planilhas.';
         }
     }
 
@@ -294,8 +302,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 currentTab = e.target.dataset.tab;
                 document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
                 document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+                
                 e.target.classList.add('active');
                 document.getElementById(currentTab).classList.add('active');
+                
                 updateDashboard();
             }
         });
@@ -309,7 +319,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let dateFilteredAllData;
         let dateFilteredExcludedData;
 
-        // Filtrar Dados por Data
+        // 1. Filtragem de Data
         if (startDateValue && endDateValue) {
             const start = new Date(startDateValue + 'T00:00:00');
             const end = new Date(endDateValue + 'T23:59:59');
@@ -328,15 +338,15 @@ document.addEventListener('DOMContentLoaded', function() {
         
         let dataForRender = [...dateFilteredAllData];
 
-        // --- CÁLCULO DO PRÓ-LABORE FIXO (SOMENTE CC 1000) ---
+        // 2. Lógica de Pró-labore (CUMULATIVA/SOMAR) no CC 1000
+        // Regra: Somar R$ 30.911,97 * número de meses do filtro
         if (includeProLabore && startDateValue && endDateValue) {
-            const proLaboreStartDate = new Date(2025, 3, 1); // Início: 01/04/2025
+            const proLaboreStartDate = new Date(2025, 3, 1); // Abr 2025
             const proLaboreMonthlyAmount = 30911.97;
             
             const filterStartDate = new Date(startDateValue + 'T00:00:00');
             const filterEndDate = new Date(endDateValue + 'T23:59:59');
             
-            // Verifica se o período selecionado pega o período de pró-labore
             const effectiveStartDate = new Date(Math.max(filterStartDate, proLaboreStartDate));
             
             if (filterEndDate >= effectiveStartDate) {
@@ -345,21 +355,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 const startYear = effectiveStartDate.getFullYear();
                 const startMonth = effectiveStartDate.getMonth();
 
-                // Cálculo de meses inclusivos
                 const monthsDiff = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
                 
                 if (monthsDiff > 0) {
                     const totalCalculated = monthsDiff * proLaboreMonthlyAmount;
                     
-                    // Adiciona LINHA CALCULADA aos dados
-                    // Importante: Setamos centroCusto 1000 para que apareça lá e não nos outros
+                    // INSERE O VALOR SOMADO
                     dataForRender.push({
                         centroCusto: '1000', 
                         data: endDateValue, 
-                        planoFinanceiro: `Soma Pró-Labore Fixo (${monthsDiff} meses)`, 
+                        planoFinanceiro: 'Pró-labore Diretoria', // Sem observação extra
                         valor: totalCalculated, 
-                        credor: 'Diretoria (Calculado)',
-                        isCalculated: true // Flag para identificação visual se necessário
+                        credor: 'Diretoria',
+                        isCalculated: true
                     });
                 }
             }
@@ -417,9 +425,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         container.innerHTML = `
             <h3>Resumo Operacional (${periodText})</h3>
-            <div class="summary-item"><span>CC 1000 (Empresa 1)</span><strong>${formatCurrency(total1000)}</strong></div>
-            <div class="summary-item"><span>CC 2000 (Empresa 2 Matriz)</span><strong>${formatCurrency(total2000)}</strong></div>
-            <div class="summary-item"><span>CC 2002 (Empresa 2 Novos Neg.)</span><strong>${formatCurrency(total2002)}</strong></div>
+            <div class="summary-item"><span>CC 1000</span><strong>${formatCurrency(total1000)}</strong></div>
+            <div class="summary-item"><span>CC 2000</span><strong>${formatCurrency(total2000)}</strong></div>
+            <div class="summary-item"><span>CC 2002</span><strong>${formatCurrency(total2002)}</strong></div>
             <div class="summary-item total"><span>Total Operacional</span><strong>${formatCurrency(grandTotal)}</strong></div>
         `;
     }
@@ -427,6 +435,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderExcludedSummary(data) {
         const container = document.getElementById('summary-panel');
         const periodText = getPeriodText();
+
         const total1000 = d3.sum(data.filter(d => d.centroCusto === '1000'), d => d.valor);
         const total2000 = d3.sum(data.filter(d => d.centroCusto === '2000'), d => d.valor);
         const total2002 = d3.sum(data.filter(d => d.centroCusto === '2002'), d => d.valor);
@@ -463,6 +472,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div id="table-content-${containerId}"></div>`;
         
         container.appendChild(wrapper);
+            
         const btn = document.getElementById(`multiselect-btn-${containerId}`);
         const optionsDiv = document.getElementById(`multiselect-options-${containerId}`);
         
@@ -521,8 +531,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const sortedData = Array.from(groupedData.entries()).sort((a, b) => b[1] - a[1]);
         
         sortedData.forEach(([key, value]) => {
-            // Destaca a linha do cálculo
-            const style = key.includes('Soma Pró-Labore') ? 'style="background-color: #fff3e0; font-weight:bold;"' : '';
+            // Se for a linha calculada do pró-labore, destaca
+            const isCalculatedRow = key === 'Pró-labore Diretoria'; 
+            const style = isCalculatedRow ? 'style="background-color: #fff3e0; font-weight:bold;"' : '';
             tableHTML += `<tr ${style}><td>${key}</td><td>${formatCurrency(value)}</td></tr>`;
         });
 
@@ -541,6 +552,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateTotalView(data) {
         const containerId = 'table-container-total';
         const selectedPlans = getSelectedPlans(containerId);
+
         let dataForView = data;
         if (selectedPlans) {
             dataForView = dataForView.filter(d => selectedPlans.includes(d.planoFinanceiro));
@@ -550,11 +562,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const tableContentDiv = document.getElementById(`table-content-${containerId}`);
         
         let tableHTML = `<table><thead><tr><th>Plano Financeiro</th><th>Valor (${periodText})</th></tr></thead><tbody>`;
+        
         const groupedData = d3.rollup(dataForView, v => d3.sum(v, d => d.valor), d => d.planoFinanceiro);
         const sortedData = Array.from(groupedData.entries()).sort((a, b) => b[1] - a[1]);
 
         sortedData.forEach(([key, value]) => {
-            const style = key.includes('Soma Pró-Labore') ? 'style="background-color: #fff3e0; font-weight:bold;"' : '';
+            const isCalculatedRow = key === 'Pró-labore Diretoria';
+            const style = isCalculatedRow ? 'style="background-color: #fff3e0; font-weight:bold;"' : '';
             tableHTML += `<tr ${style}><td>${key}</td><td>${formatCurrency(value)}</td></tr>`;
         });
         
@@ -573,6 +587,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateExcludedTable(data) {
         const containerId = 'table-container-excluded';
         const selectedPlans = getSelectedPlans(containerId);
+
         let dataForTable = data;
         if (selectedPlans) {
              dataForTable = dataForTable.filter(d => selectedPlans.includes(d.planoFinanceiro));
