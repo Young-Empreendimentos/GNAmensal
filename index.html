@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Financeiro</title>
+    <title>Dashboard Financeiro - Com Pró-labore Fixo</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
@@ -27,6 +27,11 @@
             left: 50%;
             transform: translate(-50%, -50%);
             font-size: 1.5em;
+            background: rgba(255,255,255,0.9);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            z-index: 9999;
         }
         .page-wrapper {
             display: none;
@@ -43,7 +48,7 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-         .filter-item {
+        .filter-item {
             display: flex;
             align-items: center;
             gap: 5px;
@@ -56,7 +61,7 @@
             padding: 15px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            overflow-x: auto; /* Permite rolagem horizontal em telas pequenas */
+            overflow-x: auto;
         }
         .tab-button {
             padding: 10px 15px;
@@ -65,7 +70,7 @@
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.3s, color 0.3s;
-            white-space: nowrap; /* Impede que o texto do botão quebre */
+            white-space: nowrap;
         }
         .tab-button.active {
             background-color: var(--color-orange);
@@ -90,6 +95,7 @@
             font-weight: bold;
             border-top: 2px solid var(--color-dark-gray-main);
             margin-top: 10px;
+            font-size: 1.1em;
         }
         table {
             width: 100%;
@@ -107,44 +113,35 @@
             color: white;
         }
         .highlight-row { font-weight: bold; background-color: #fff3e0; }
-        .multiselect { position: relative; }
+        .multiselect { position: relative; display: inline-block; }
         .multiselect-options {
             display: none;
             position: absolute;
             background-color: white;
             border: 1px solid #ccc;
-            max-height: 200px;
+            max-height: 300px;
             overflow-y: auto;
             z-index: 1000;
+            padding: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 250px;
         }
         .multiselect-options.active { display: block; }
-        .multiselect-options label { display: block; padding: 5px; }
+        .multiselect-options label { display: block; padding: 5px; cursor: pointer; }
+        .multiselect-options label:hover { background-color: #f0f0f0; }
 
-        /* Media query para telas menores */
         @media (max-width: 600px) {
-            body {
-                padding: 10px;
-            }
-            .filters, .tab-nav {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .filter-item {
-                justify-content: space-between;
-            }
-            .tab-button {
-                text-align: center;
-            }
-            th, td {
-                padding: 8px;
-                font-size: 0.9em;
-            }
+            body { padding: 10px; }
+            .filters, .tab-nav { flex-direction: column; align-items: stretch; }
+            .filter-item { justify-content: space-between; }
+            .tab-button { text-align: center; }
+            th, td { padding: 8px; font-size: 0.9em; }
         }
     </style>
 </head>
 <body>
 
-    <div id="loader">Carregando dados...</div>
+    <div id="loader">Carregando e processando dados...</div>
 
     <div class="page-wrapper">
         <div class="filters">
@@ -158,29 +155,39 @@
             </div>
             <div class="filter-item">
                 <input type="checkbox" id="include-prolabore-filter" checked>
-                <label for="include-prolabore-filter">Incluir Pró-labore Diretoria (CC 1000)</label>
+                <label for="include-prolabore-filter">Somar Pró-labore Fixo (Diretoria CC 1000)</label>
             </div>
         </div>
 
         <div id="summary-panel"></div>
 
         <div class="tab-nav">
-            <button class="tab-button active" data-tab="cc1000">CC 1000</button>
-            <button class="tab-button" data-tab="cc2000">CC 2000</button>
-            <button class="tab-button" data-tab="cc2002">CC 2002</button>
+            <button class="tab-button active" data-tab="cc1000">CC 1000 (Empresa 1)</button>
+            <button class="tab-button" data-tab="cc2000">CC 2000 (Empresa 2 Matriz)</button>
+            <button class="tab-button" data-tab="cc2002">CC 2002 (Empresa 2 Novos Negócios)</button>
             <button class="tab-button" data-tab="total">Total Geral</button>
             <button class="tab-button" data-tab="chart">Gráfico Operacional</button>
-            <button class="tab-button" data-tab="excluded">Excluídos</button>
+            <button class="tab-button" data-tab="excluded">Itens Excluídos</button>
             <button class="tab-button" data-tab="excluded-chart">Gráfico Excluídos</button>
         </div>
 
         <div class="tab-content">
-            <div id="cc1000" class="tab-pane active"></div>
-            <div id="cc2000" class="tab-pane"></div>
-            <div id="cc2002" class="tab-pane"></div>
-            <div id="total" class="tab-pane"></div>
+            <div id="cc1000" class="tab-pane active">
+                <div id="table-container-cc1000"></div>
+            </div>
+            <div id="cc2000" class="tab-pane">
+                <div id="table-container-cc2000"></div>
+            </div>
+            <div id="cc2002" class="tab-pane">
+                <div id="table-container-cc2002"></div>
+            </div>
+            <div id="total" class="tab-pane">
+                <div id="table-container-total"></div>
+            </div>
             <div id="chart" class="tab-pane"></div>
-            <div id="excluded" class="tab-pane"></div>
+            <div id="excluded" class="tab-pane">
+                <div id="table-container-excluded"></div>
+            </div>
             <div id="excluded-chart" class="tab-pane"></div>
         </div>
     </div>
@@ -198,9 +205,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const loader = document.getElementById('loader');
     const pageWrapper = document.querySelector('.page-wrapper');
 
+    // --- FUNÇÃO DE PARSE ---
+    // Corrige valores com "T" e formata corretamente
     function parseCurrency(currencyString) {
-        if (!currencyString || typeof currencyString !== 'string') return 0;
-        return Number(String(currencyString).replace('R$', '').replace(/\./g, '').replace(',', '.').trim());
+        if (!currencyString) return 0;
+        let str = String(currencyString);
+        str = str.replace(/[A-Za-z\$\s]/g, ''); // Remove letras e R$
+        str = str.replace(/\./g, ''); // Remove pontos de milhar
+        str = str.replace(',', '.'); // Troca vírgula por ponto
+        const val = Number(str);
+        return isNaN(val) ? 0 : val;
     }
     
     function formatCurrency(value) {
@@ -227,7 +241,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 credor: d.Credor,
                 planoFinanceiro: d['Plano financeiro'],
                 valor: parseCurrency(d.Valor)
-            })).filter(d => d.valor);
+            })).filter(d => d.valor !== 0);
 
             const excluidosTextData = await d3.text(excluidosUrl + '&_=' + cacheBuster);
             initialExcludedData = d3.csvParse(excluidosTextData).map(d => ({
@@ -236,20 +250,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 credor: d.Credor,
                 planoFinanceiro: d['Plano financeiro'],
                 valor: parseCurrency(d.Valor)
-            })).filter(d => {
-                const isProLabore = (d.planoFinanceiro || '').toLowerCase().includes('pró-labore');
-                const isCaroline = (d.credor || '').toLowerCase().trim() === 'caroline montado volpato';
-                return !(isProLabore && isCaroline);
-            }).filter(d => d.valor);
+            })).filter(d => d.valor !== 0);
 
             allDates.push(...initialAllData.map(d => parseBrDate(d.data)), ...initialExcludedData.map(d => parseBrDate(d.data)));
-            
             const validDates = allDates.filter(d => d && !isNaN(d.getTime()));
+            
             if (validDates.length > 0) {
-                const minDate = new Date(Math.min.apply(null, validDates));
-                const maxDate = new Date(Math.max.apply(null, validDates));
-                document.getElementById('start-date-filter').value = minDate.toISOString().split('T')[0];
-                document.getElementById('end-date-filter').value = maxDate.toISOString().split('T')[0];
+                const minDataDados = new Date(Math.min.apply(null, validDates));
+                const maxDataDados = new Date(Math.max.apply(null, validDates));
+                
+                // Configuração para o último trimestre de 2025 conforme seu pedido
+                const defaultStart = new Date(2025, 9, 1); // 01/10/2025
+                const defaultEnd = new Date(2025, 11, 31); // 31/12/2025
+
+                if (minDataDados <= defaultEnd && maxDataDados >= defaultStart) {
+                     document.getElementById('start-date-filter').value = '2025-10-01';
+                     document.getElementById('end-date-filter').value = '2025-12-31';
+                } else {
+                     document.getElementById('start-date-filter').value = minDataDados.toISOString().split('T')[0];
+                     document.getElementById('end-date-filter').value = maxDataDados.toISOString().split('T')[0];
+                }
             }
             
             setupEventListeners();
@@ -259,11 +279,10 @@ document.addEventListener('DOMContentLoaded', function() {
             pageWrapper.style.display = 'flex';
 
         } catch (error) {
-            console.error('Erro geral ao carregar os dados:', error);
-            loader.textContent = 'Falha ao carregar os dados. Verifique as URLs das planilhas.';
+            console.error('Erro:', error);
+            loader.textContent = 'Falha ao carregar os dados. Verifique a conexão.';
         }
     }
-
 
     function setupEventListeners() {
         document.getElementById('start-date-filter').addEventListener('change', updateDashboard);
@@ -275,10 +294,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 currentTab = e.target.dataset.tab;
                 document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
                 document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
-                
                 e.target.classList.add('active');
                 document.getElementById(currentTab).classList.add('active');
-                
                 updateDashboard();
             }
         });
@@ -292,6 +309,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let dateFilteredAllData;
         let dateFilteredExcludedData;
 
+        // Filtrar Dados por Data
         if (startDateValue && endDateValue) {
             const start = new Date(startDateValue + 'T00:00:00');
             const end = new Date(endDateValue + 'T23:59:59');
@@ -308,65 +326,45 @@ document.addEventListener('DOMContentLoaded', function() {
             dateFilteredExcludedData = [...initialExcludedData];
         }
         
-        const dataForRender = [...dateFilteredAllData];
+        let dataForRender = [...dateFilteredAllData];
 
-        if (includeProLabore) {
-            // --- LÓGICA MODIFICADA PARA PRÓ-LABORE BASEADO NO PERÍODO ---
-            const proLaboreStartDate = new Date(2025, 3, 1); // 1 de Abril de 2025 (JS Mês 3)
+        // --- CÁLCULO DO PRÓ-LABORE FIXO (SOMENTE CC 1000) ---
+        if (includeProLabore && startDateValue && endDateValue) {
+            const proLaboreStartDate = new Date(2025, 3, 1); // Início: 01/04/2025
             const proLaboreMonthlyAmount = 30911.97;
-            let proLaboreTotalValue = 0;
+            
+            const filterStartDate = new Date(startDateValue + 'T00:00:00');
+            const filterEndDate = new Date(endDateValue + 'T23:59:59');
+            
+            // Verifica se o período selecionado pega o período de pró-labore
+            const effectiveStartDate = new Date(Math.max(filterStartDate, proLaboreStartDate));
+            
+            if (filterEndDate >= effectiveStartDate) {
+                const endYear = filterEndDate.getFullYear();
+                const endMonth = filterEndDate.getMonth();
+                const startYear = effectiveStartDate.getFullYear();
+                const startMonth = effectiveStartDate.getMonth();
 
-            // Precisamos de ambas as datas para este cálculo
-            if (startDateValue && endDateValue) {
-                const filterStartDate = new Date(startDateValue + 'T00:00:00');
-                const filterEndDate = new Date(endDateValue + 'T23:59:59'); 
-
-                // Se a data final do filtro for ANTES do início do pró-labore, o valor é sempre 0
-                if (filterEndDate >= proLaboreStartDate) {
+                // Cálculo de meses inclusivos
+                const monthsDiff = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
+                
+                if (monthsDiff > 0) {
+                    const totalCalculated = monthsDiff * proLaboreMonthlyAmount;
                     
-                    // A Lógica CUMULATIVA aplica-se às abas 'Total Geral' e 'CC 1000'
-                    if (currentTab === 'total' || currentTab === 'cc1000') {
-                        // A data de início efetiva para o cálculo é a *maior* entre o início do filtro e o início do pró-labore
-                        const effectiveCalcStartDate = new Date(Math.max(filterStartDate, proLaboreStartDate));
-                        
-                        // Garante que o período é válido (fim >= início efetivo)
-                        if (filterEndDate >= effectiveCalcStartDate) {
-                            const endYear = filterEndDate.getFullYear();
-                            const endMonth = filterEndDate.getMonth(); // 0-11
-
-                            const startYear = effectiveCalcStartDate.getFullYear();
-                            const startMonth = effectiveCalcStartDate.getMonth(); // 0-11
-
-                            // Calcula a diferença total de meses
-                            const monthDiff = (endYear - startYear) * 12 + (endMonth - startMonth);
-                            
-                            // Adiciona 1 para incluir o primeiro mês
-                            const numMonths = monthDiff + 1;
-                            
-                            proLaboreTotalValue = numMonths * proLaboreMonthlyAmount;
-                        } else {
-                            proLaboreTotalValue = 0;
-                        }
-                    } 
-                    // Para todas as OUTRAS abas (ex: CC 2000), mostrar apenas o valor mensal fixo
-                    else {
-                        // (Valor fixo se o período terminar após o início do pro-labore)
-                        proLaboreTotalValue = proLaboreMonthlyAmount;
-                    }
+                    // Adiciona LINHA CALCULADA aos dados
+                    // Importante: Setamos centroCusto 1000 para que apareça lá e não nos outros
+                    dataForRender.push({
+                        centroCusto: '1000', 
+                        data: endDateValue, 
+                        planoFinanceiro: `Soma Pró-Labore Fixo (${monthsDiff} meses)`, 
+                        valor: totalCalculated, 
+                        credor: 'Diretoria (Calculado)',
+                        isCalculated: true // Flag para identificação visual se necessário
+                    });
                 }
-                // Se filterEndDate < proLaboreStartDate, o valor permanece 0.
             }
-            // --- FIM DA LÓGICA MODIFICADA ---
-
-            dataForRender.push({
-                centroCusto: '1000',
-                data: endDateValue, 
-                planoFinanceiro: 'Soma Pró-Labore (Diretoria)',
-                valor: proLaboreTotalValue, // <-- Valor calculado
-                credor: ''
-            });
         }
-        
+
         const isExcludedTab = currentTab === 'excluded' || currentTab === 'excluded-chart';
         if (isExcludedTab) {
             renderExcludedSummary(dateFilteredExcludedData);
@@ -417,48 +415,54 @@ document.addEventListener('DOMContentLoaded', function() {
         const total2002 = d3.sum(data.filter(d => d.centroCusto === '2002'), d => d.valor);
         const grandTotal = total1000 + total2000 + total2002;
 
-        container.innerHTML = '<h3>Resumo Operacional (' + periodText + ')</h3>' +
-            '<div class="summary-item"><span>CC 1000</span><strong>' + formatCurrency(total1000) + '</strong></div>' +
-            '<div class="summary-item"><span>CC 2000</span><strong>' + formatCurrency(total2000) + '</strong></div>' +
-            '<div class="summary-item"><span>CC 2002</span><strong>' + formatCurrency(total2002) + '</strong></div>' +
-            '<div class="summary-item total"><span>Total Operacional</span><strong>' + formatCurrency(grandTotal) + '</strong></div>';
+        container.innerHTML = `
+            <h3>Resumo Operacional (${periodText})</h3>
+            <div class="summary-item"><span>CC 1000 (Empresa 1)</span><strong>${formatCurrency(total1000)}</strong></div>
+            <div class="summary-item"><span>CC 2000 (Empresa 2 Matriz)</span><strong>${formatCurrency(total2000)}</strong></div>
+            <div class="summary-item"><span>CC 2002 (Empresa 2 Novos Neg.)</span><strong>${formatCurrency(total2002)}</strong></div>
+            <div class="summary-item total"><span>Total Operacional</span><strong>${formatCurrency(grandTotal)}</strong></div>
+        `;
     }
 
     function renderExcludedSummary(data) {
         const container = document.getElementById('summary-panel');
         const periodText = getPeriodText();
-
         const total1000 = d3.sum(data.filter(d => d.centroCusto === '1000'), d => d.valor);
         const total2000 = d3.sum(data.filter(d => d.centroCusto === '2000'), d => d.valor);
         const total2002 = d3.sum(data.filter(d => d.centroCusto === '2002'), d => d.valor);
         const grandTotal = total1000 + total2000 + total2002;
 
-        container.innerHTML = '<h3>Resumo Excluídos (' + periodText + ')</h3>' +
-            '<div class="summary-item"><span>CC 1000</span><strong>' + formatCurrency(total1000) + '</strong></div>' +
-            '<div class="summary-item"><span>CC 2000</span><strong>' + formatCurrency(total2000) + '</strong></div>' +
-            '<div class="summary-item"><span>CC 2002</span><strong>' + formatCurrency(total2002) + '</strong></div>' +
-            '<div class="summary-item total"><span>Total Excluído</span><strong>' + formatCurrency(grandTotal) + '</strong></div>';
+        container.innerHTML = `
+            <h3>Resumo Excluídos (${periodText})</h3>
+            <div class="summary-item"><span>CC 1000</span><strong>${formatCurrency(total1000)}</strong></div>
+            <div class="summary-item"><span>CC 2000</span><strong>${formatCurrency(total2000)}</strong></div>
+            <div class="summary-item"><span>CC 2002</span><strong>${formatCurrency(total2002)}</strong></div>
+            <div class="summary-item total"><span>Total Excluído</span><strong>${formatCurrency(grandTotal)}</strong></div>
+        `;
     }
 
     function createMultiSelectFilter(containerId, data, onFilterChange) {
-        const uniquePlans = [...new Set(data.map(d => d.planoFinanceiro))].sort();
-
+        const uniquePlans = [...new Set(data.map(d => d.planoFinanceiro).filter(Boolean))].sort();
         const container = document.getElementById(containerId);
-        let optionsHTML = uniquePlans.map(p => `<label><input type="checkbox" value="${p}" checked> ${p}</label>`).join('');
+        container.innerHTML = ''; 
 
-        container.innerHTML =
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = 
             `<div class="filter-container" style="margin-bottom: 20px;">
-                <label>Plano Financeiro:</label>
+                <label>Filtrar Plano Financeiro:</label>
                 <div class="multiselect" id="multiselect-container-${containerId}">
-                    <button class="multiselect-btn" id="multiselect-btn-${containerId}">Selecionar Planos</button>
+                    <button class="tab-button" id="multiselect-btn-${containerId}">Selecionar/Desmarcar Planos</button>
                     <div class="multiselect-options" id="multiselect-options-${containerId}">
-                        <label><input type="checkbox" value="all" checked> (Selecionar Todos)</label>
-                        ${optionsHTML}
+                        <label style="border-bottom:1px solid #eee; margin-bottom:5px;">
+                            <input type="checkbox" value="all" checked> <strong>(Selecionar Todos)</strong>
+                        </label>
+                        ${uniquePlans.map(p => `<label><input type="checkbox" value="${p}" checked> ${p}</label>`).join('')}
                     </div>
                 </div>
             </div>
-            <div id="table-container-${containerId}"></div>`;
-            
+            <div id="table-content-${containerId}"></div>`;
+        
+        container.appendChild(wrapper);
         const btn = document.getElementById(`multiselect-btn-${containerId}`);
         const optionsDiv = document.getElementById(`multiselect-options-${containerId}`);
         
@@ -473,107 +477,109 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.target.value === 'all') {
                 otherCheckboxes.forEach(cb => cb.checked = e.target.checked);
             } else {
-                allCheckbox.checked = [...otherCheckboxes].every(cb => cb.checked);
+                const allChecked = [...otherCheckboxes].every(cb => cb.checked);
+                allCheckbox.checked = allChecked;
+                if (!e.target.checked) allCheckbox.checked = false;
             }
             onFilterChange();
         });
     }
 
+    function getSelectedPlans(containerId) {
+        const optionsDiv = document.getElementById(`multiselect-options-${containerId}`);
+        if (!optionsDiv) return null;
+        const selectedCheckboxes = optionsDiv.querySelectorAll('input:not([value="all"]):checked');
+        return Array.from(selectedCheckboxes).map(cb => cb.value);
+    }
+
     function renderCCTable(cc, data) {
         const tabId = 'cc' + cc;
-        createMultiSelectFilter(tabId, data.filter(d => d.centroCusto === cc), () => updateTableForCC(cc, data));
-        updateTableForCC(cc, data);
+        const ccData = data.filter(d => d.centroCusto === cc);
+        
+        if (!document.getElementById(`multiselect-options-${tabId}`)) {
+             createMultiSelectFilter(`table-container-${tabId}`, ccData, () => updateTableForCC(cc, ccData));
+        }
+        updateTableForCC(cc, ccData);
     }
 
     function updateTableForCC(cc, ccData) {
-        const tableContainer = document.getElementById(`table-container-cc${cc}`);
-        const optionsDiv = document.getElementById(`multiselect-options-cc${cc}`);
-        if (!optionsDiv) return;
+        const tabId = 'cc' + cc;
+        const selectedPlans = getSelectedPlans(`table-container-${tabId}`);
         
-        const selectedCheckboxes = optionsDiv.querySelectorAll('input[type="checkbox"]:checked');
-        const selectedPlans = Array.from(selectedCheckboxes).map(cb => cb.value);
-
-        let dataForTable = ccData.filter(d => d.centroCusto === cc);
-        if (!selectedPlans.includes('all')) {
+        let dataForTable = ccData;
+        if (selectedPlans) {
             dataForTable = dataForTable.filter(d => selectedPlans.includes(d.planoFinanceiro));
         }
         
         const periodText = getPeriodText();
+        const tableContentDiv = document.getElementById(`table-content-table-container-${tabId}`);
+        if(!tableContentDiv) return;
+
         let tableHTML = `<table><thead><tr><th>Plano Financeiro</th><th>Valor (${periodText})</th></tr></thead><tbody>`;
+        
         const groupedData = d3.rollup(dataForTable, v => d3.sum(v, d => d.valor), d => d.planoFinanceiro);
         const sortedData = Array.from(groupedData.entries()).sort((a, b) => b[1] - a[1]);
         
         sortedData.forEach(([key, value]) => {
-            const isProLaboreSum = key.toLowerCase().includes('soma pró-labore');
-            const rowClass = isProLaboreSum ? 'class="highlight-row"' : '';
-            tableHTML += `<tr ${rowClass}><td>${key}</td><td>${formatCurrency(value)}</td></tr>`;
+            // Destaca a linha do cálculo
+            const style = key.includes('Soma Pró-Labore') ? 'style="background-color: #fff3e0; font-weight:bold;"' : '';
+            tableHTML += `<tr ${style}><td>${key}</td><td>${formatCurrency(value)}</td></tr>`;
         });
 
         tableHTML += '</tbody></table>';
-        tableContainer.innerHTML = tableHTML;
+        tableContentDiv.innerHTML = tableHTML;
     }
 
     function renderTotalGeral(data) {
-        createMultiSelectFilter('total', data, () => updateTotalView(data));
+        const containerId = 'table-container-total';
+        if (!document.getElementById(`multiselect-options-${containerId}`)) {
+            createMultiSelectFilter(containerId, data, () => updateTotalView(data));
+        }
         updateTotalView(data);
     }
     
-    // <!--- FUNÇÃO MODIFICADA ---!>
     function updateTotalView(data) {
-        const tableContainer = document.getElementById('table-container-total');
-        const optionsDiv = document.getElementById('multiselect-options-total');
-        if (!optionsDiv) return;
-
-        const selectedCheckboxes = optionsDiv.querySelectorAll('input[type="checkbox"]:checked');
-        const selectedPlans = Array.from(selectedCheckboxes).map(cb => cb.value);
-
+        const containerId = 'table-container-total';
+        const selectedPlans = getSelectedPlans(containerId);
         let dataForView = data;
-        if (!selectedPlans.includes('all')) {
+        if (selectedPlans) {
             dataForView = dataForView.filter(d => selectedPlans.includes(d.planoFinanceiro));
         }
         
         const periodText = getPeriodText();
-        // Alterado: Cabeçalho com apenas 2 colunas
+        const tableContentDiv = document.getElementById(`table-content-${containerId}`);
+        
         let tableHTML = `<table><thead><tr><th>Plano Financeiro</th><th>Valor (${periodText})</th></tr></thead><tbody>`;
-        
-        // Alterado: Agrupamento apenas por planoFinanceiro
         const groupedData = d3.rollup(dataForView, v => d3.sum(v, d => d.valor), d => d.planoFinanceiro);
-        
-        // Novo: Converter mapa para array e ordenar por valor
         const sortedData = Array.from(groupedData.entries()).sort((a, b) => b[1] - a[1]);
 
-        // Alterado: Loop sobre os dados agrupados e ordenados
         sortedData.forEach(([key, value]) => {
-            const isProLaboreSum = key.toLowerCase().includes('soma pró-labore');
-            const rowClass = isProLaboreSum ? 'class="highlight-row"' : '';
-            // Alterado: Linha da tabela com apenas 2 colunas
-            tableHTML += `<tr ${rowClass}><td>${key}</td><td>${formatCurrency(value)}</td></tr>`;
+            const style = key.includes('Soma Pró-Labore') ? 'style="background-color: #fff3e0; font-weight:bold;"' : '';
+            tableHTML += `<tr ${style}><td>${key}</td><td>${formatCurrency(value)}</td></tr>`;
         });
         
         tableHTML += '</tbody></table>';
-        tableContainer.innerHTML = tableHTML;
+        tableContentDiv.innerHTML = tableHTML;
     }
-    // <!--- FIM DA FUNÇÃO MODIFICADA ---!>
 
     function renderExcludedTab(data) {
-        createMultiSelectFilter('excluded', data, () => updateExcludedTable(data));
+        const containerId = 'table-container-excluded';
+        if (!document.getElementById(`multiselect-options-${containerId}`)) {
+            createMultiSelectFilter(containerId, data, () => updateExcludedTable(data));
+        }
         updateExcludedTable(data);
     }
 
     function updateExcludedTable(data) {
-        const tableContainer = document.getElementById('table-container-excluded');
-        const optionsDiv = document.getElementById('multiselect-options-excluded');
-        if (!optionsDiv) return;
-
-        const selectedCheckboxes = optionsDiv.querySelectorAll('input[type="checkbox"]:checked');
-        const selectedPlans = Array.from(selectedCheckboxes).map(cb => cb.value);
-
+        const containerId = 'table-container-excluded';
+        const selectedPlans = getSelectedPlans(containerId);
         let dataForTable = data;
-        if (!selectedPlans.includes('all')) {
-            dataForTable = dataForTable.filter(d => selectedPlans.includes(d.planoFinanceiro));
+        if (selectedPlans) {
+             dataForTable = dataForTable.filter(d => selectedPlans.includes(d.planoFinanceiro));
         }
         
         dataForTable.sort((a, b) => parseBrDate(b.data) - parseBrDate(a.data));
+        const tableContentDiv = document.getElementById(`table-content-${containerId}`);
 
         let tableRows = dataForTable.map(row => 
             `<tr>
@@ -584,7 +590,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </tr>`
         ).join('');
 
-        tableContainer.innerHTML = `<table>
+        tableContentDiv.innerHTML = `<table>
             <thead><tr><th>Data</th><th>Plano Financeiro</th><th>Centro de Custo</th><th>Valor</th></tr></thead>
             <tbody>${tableRows}</tbody>
             </table>`;
@@ -593,11 +599,10 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderComparisonChart(data) {
         const chartContainer = document.getElementById('chart');
         const periodText = getPeriodText();
-        
         const oldCcFilter = document.getElementById('chart-cc-filter');
         const oldCcValue = oldCcFilter ? oldCcFilter.value : 'all';
 
-        chartContainer.innerHTML =
+        chartContainer.innerHTML = 
             `<div class="filter-container" style="margin-bottom: 20px; flex-shrink: 0;">
                 <label for="chart-cc-filter">Visualizar Centro de Custo:</label>
                 <select id="chart-cc-filter">
@@ -629,7 +634,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 type: 'bar', marker: { color: orangeColor }
             }];
             const layout = {
-                title: { text: `Despesas por Plano Financeiro (${newCcFilter.options[newCcFilter.selectedIndex].text}) - ${periodText}`, font: { family: 'var(--font-family)', size: 18, color: 'var(--color-dark-gray-main)' } },
+                title: { text: `Despesas por Plano (${newCcFilter.options[newCcFilter.selectedIndex].text}) - ${periodText}`, font: { family: 'var(--font-family)', size: 18, color: 'var(--color-dark-gray-main)' } },
                 xaxis: { tickangle: -45, rangeslider: { visible: true, bgcolor: 'var(--color-light-gray)', bordercolor: 'var(--color-medium-gray)', borderwidth: 1, thickness: 0.1 } },
                 yaxis: { title: 'Valor (em mil R$)', showgrid: true, gridcolor: 'var(--color-medium-gray)' },
                 margin: { b: 200, t: 60, l: 80, r: 40 },
@@ -645,13 +650,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderExcludedChart(data) {
         const chartContainer = document.getElementById('excluded-chart');
         const uniqueCCs = ['Todos', ...new Set(data.map(d => d.centroCusto))].sort();
-
         const oldCcFilter = document.getElementById('excluded-chart-cc-filter');
         const oldCcValue = oldCcFilter ? oldCcFilter.value : 'Todos';
 
         let optionsHTML = uniqueCCs.map(cc => `<option value="${cc}">${cc === 'Todos' ? 'Todos' : 'CC ' + cc}</option>`).join('');
 
-        chartContainer.innerHTML =
+        chartContainer.innerHTML = 
             `<div class="filter-container" style="margin-bottom: 20px; flex-shrink: 0;">
                 <label for="excluded-chart-cc-filter">Visualizar Centro de Custo:</label>
                 <select id="excluded-chart-cc-filter">${optionsHTML}</select>
@@ -681,7 +685,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 type: 'bar', marker: { color: orangeColor } 
             }];
             const layout = {
-                title: { text: `Despesas por Plano Financeiro Excluído (${newCcFilter.options[newCcFilter.selectedIndex].text})`, font: { family: 'var(--font-family)', size: 18, color: 'var(--color-dark-gray-main)' } },
+                title: { text: `Excluídos por Plano (${newCcFilter.options[newCcFilter.selectedIndex].text})`, font: { family: 'var(--font-family)', size: 18, color: 'var(--color-dark-gray-main)' } },
                 xaxis: { tickangle: -45, rangeslider: { visible: true, bgcolor: 'var(--color-light-gray)', bordercolor: 'var(--color-medium-gray)', borderwidth: 1, thickness: 0.1 } },
                 yaxis: { title: 'Valor (em mil R$)', showgrid: true, gridcolor: 'var(--color-medium-gray)'},
                 margin: { b: 200, t: 60, l: 80, r: 40 },
