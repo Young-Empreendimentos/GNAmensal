@@ -206,24 +206,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- FUNÇÕES DE AJUDA ---
 
-    // Parser seguro que remove R$, espaços e converte formato BR para Number JS
     function parseCurrency(value) {
         if (!value) return 0;
-        // Converte para string e remove qualquer caractere que não seja número, vírgula, ponto ou hífen
         let cleanStr = String(value).replace(/[^\d.,-]/g, '');
         
-        // Remove pontos de milhar (ex: 1.000,00 -> 1000,00)
-        // Lógica: se tem vírgula e ponto, assume que ponto é milhar BR
         if (cleanStr.includes(',') && cleanStr.includes('.')) {
             cleanStr = cleanStr.replace(/\./g, ''); 
         } else if ((cleanStr.match(/\./g) || []).length > 1) {
-            // Se tem mais de um ponto (ex: 1.000.000), remove todos
             cleanStr = cleanStr.replace(/\./g, '');
         }
 
-        // Troca vírgula decimal por ponto (padrão JS)
         cleanStr = cleanStr.replace(',', '.');
-
         const number = parseFloat(cleanStr);
         return isNaN(number) ? 0 : number;
     }
@@ -234,14 +227,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function parseBrDate(dateStr) {
         if (!dateStr) return null;
-        // Pega apenas a parte da data caso venha com hora (10/10/2025 10:00)
         const cleanDateStr = dateStr.trim().split(' ')[0]; 
         if (!/^\d{2}\/\d{2}\/\d{4}$/.test(cleanDateStr)) return null;
         const [day, month, year] = cleanDateStr.split('/');
         return new Date(year, month - 1, day);
     }
 
-    // Normaliza chaves do CSV (remove espaços, lower case) para evitar erro se mudar "Valor" para "valor"
     function normalizeKeys(row) {
         const newRow = {};
         Object.keys(row).forEach(key => {
@@ -262,15 +253,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const cacheBuster = new Date().getTime();
             let allDates = [];
 
-            // Carrega Operacionais
             const operacionaisTextData = await d3.text(operacionaisUrl + '&_=' + cacheBuster);
             initialAllData = d3.csvParse(operacionaisTextData, normalizeKeys).filter(d => d.valor !== 0);
 
-            // Carrega Excluídos
             const excluidosTextData = await d3.text(excluidosUrl + '&_=' + cacheBuster);
             initialExcludedData = d3.csvParse(excluidosTextData, normalizeKeys).filter(d => d.valor !== 0);
 
-            // Coleta datas para definir o filtro inicial
             allDates.push(...initialAllData.map(d => parseBrDate(d.data)), ...initialExcludedData.map(d => parseBrDate(d.data)));
             const validDates = allDates.filter(d => d && !isNaN(d.getTime()));
             
@@ -278,9 +266,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const minDataDados = new Date(Math.min.apply(null, validDates));
                 const maxDataDados = new Date(Math.max.apply(null, validDates));
                 
-                // Configura padrão Q4 2025
-                const defaultStart = new Date(2025, 9, 1); // 01/10/2025
-                const defaultEnd = new Date(2025, 11, 31); // 31/12/2025
+                const defaultStart = new Date(2025, 9, 1);
+                const defaultEnd = new Date(2025, 11, 31);
 
                 if (minDataDados <= defaultEnd && maxDataDados >= defaultStart) {
                      document.getElementById('start-date-filter').value = '2025-10-01';
@@ -355,13 +342,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const filterStartDate = new Date(startDateValue + 'T00:00:00');
             const filterEndDate = new Date(endDateValue + 'T23:59:59');
             
-            // Calcula número de meses englobados no filtro
             const startY = filterStartDate.getFullYear();
             const startM = filterStartDate.getMonth();
             const endY = filterEndDate.getFullYear();
             const endM = filterEndDate.getMonth();
             
-            // Diferença em meses (inclusiva)
             const monthsDiff = (endY - startY) * 12 + (endM - startM) + 1;
             
             if (monthsDiff > 0) {
@@ -419,6 +404,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return 'Todo o Período';
     }
 
+    // --- AQUI FOI O AJUSTE SOLICITADO ---
     function renderMainSummary(data) {
         const container = document.getElementById('summary-panel');
         const periodText = getPeriodText();
@@ -428,11 +414,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const total2002 = d3.sum(data.filter(d => d.centroCusto === '2002'), d => d.valor);
         const grandTotal = total1000 + total2000 + total2002;
 
+        // Removidos os textos "(Adm/Diretoria)", "(Operacional)", etc.
         container.innerHTML = `
             <h3>Resumo Operacional (${periodText})</h3>
-            <div class="summary-item"><span>CC 1000 (Adm/Diretoria)</span><strong>${formatCurrency(total1000)}</strong></div>
-            <div class="summary-item"><span>CC 2000 (Operacional)</span><strong>${formatCurrency(total2000)}</strong></div>
-            <div class="summary-item"><span>CC 2002 (Comercial)</span><strong>${formatCurrency(total2002)}</strong></div>
+            <div class="summary-item"><span>CC 1000</span><strong>${formatCurrency(total1000)}</strong></div>
+            <div class="summary-item"><span>CC 2000</span><strong>${formatCurrency(total2000)}</strong></div>
+            <div class="summary-item"><span>CC 2002</span><strong>${formatCurrency(total2002)}</strong></div>
             <div class="summary-item total"><span>Total Operacional</span><strong>${formatCurrency(grandTotal)}</strong></div>
         `;
     }
