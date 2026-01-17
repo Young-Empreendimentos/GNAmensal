@@ -140,7 +140,7 @@
 </head>
 <body>
 
-    <div id="loader">Carregando dados...</div>
+    <div id="loader">Carregando e Processando dados...</div>
 
     <div class="page-wrapper">
         <div class="filters">
@@ -154,7 +154,7 @@
             </div>
             <div class="filter-item">
                 <input type="checkbox" id="include-prolabore-filter" checked>
-                <label for="include-prolabore-filter">Incluir Pró-labore (Fixo)</label>
+                <label for="include-prolabore-filter">Incluir Pró-labore Fixo (Diretoria)</label>
             </div>
         </div>
 
@@ -193,7 +193,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // URLs
+    // Links das planilhas baseados nas suas queries
     const operacionaisUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTkiy-n--R8fAEJJQD2Axayu6LbLSOfYLZsJxQ49xDp560RUzUtH1CeivSvAO71fmE_6sbSAfHvud2Z/pub?gid=974816377&single=true&output=csv';
     const excluidosUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTkiy-n--R8fAEJJQD2Axayu6LbLSOfYLZsJxQ49xDp560RUzUtH1CeivSvAO71fmE_6sbSAfHvud2Z/pub?gid=239610435&single=true&output=csv';
     
@@ -204,25 +204,28 @@ document.addEventListener('DOMContentLoaded', function() {
     const loader = document.getElementById('loader');
     const pageWrapper = document.querySelector('.page-wrapper');
 
-    // --- PARSER DE MOEDA MAIS ROBUSTO ---
-    // Remove tudo que não for dígito, vírgula ou sinal de menos
-    // Resolve o problema do "T" e outros caracteres invisíveis
-    function parseCurrency(currencyString) {
-        if (!currencyString) return 0;
-        let str = String(currencyString);
-        
-        // Mantém apenas números, vírgula e hífen (para negativos)
-        str = str.replace(/[^\d,-]/g, ''); 
-        
-        // Se tiver mais de uma vírgula ou formato inválido, tenta limpar mais
-        if (str === '' || str === '-') return 0;
+    // --- FUNÇÕES DE AJUDA ---
 
-        // Formato brasileiro: 1.000,00 -> o regex removeu o ponto, virou 1000,00
-        // Agora troca vírgula por ponto para o JS entender
-        str = str.replace(',', '.'); 
+    // Parser seguro que remove R$, espaços e converte formato BR para Number JS
+    function parseCurrency(value) {
+        if (!value) return 0;
+        // Converte para string e remove qualquer caractere que não seja número, vírgula, ponto ou hífen
+        let cleanStr = String(value).replace(/[^\d.,-]/g, '');
         
-        const val = Number(str);
-        return isNaN(val) ? 0 : val;
+        // Remove pontos de milhar (ex: 1.000,00 -> 1000,00)
+        // Lógica: se tem vírgula e ponto, assume que ponto é milhar BR
+        if (cleanStr.includes(',') && cleanStr.includes('.')) {
+            cleanStr = cleanStr.replace(/\./g, ''); 
+        } else if ((cleanStr.match(/\./g) || []).length > 1) {
+            // Se tem mais de um ponto (ex: 1.000.000), remove todos
+            cleanStr = cleanStr.replace(/\./g, '');
+        }
+
+        // Troca vírgula decimal por ponto (padrão JS)
+        cleanStr = cleanStr.replace(',', '.');
+
+        const number = parseFloat(cleanStr);
+        return isNaN(number) ? 0 : number;
     }
     
     function formatCurrency(value) {
@@ -231,10 +234,27 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function parseBrDate(dateStr) {
         if (!dateStr) return null;
-        const trimmedDateStr = dateStr.trim();
-        if (!/^\d{2}\/\d{2}\/\d{4}$/.test(trimmedDateStr)) return null;
-        const [day, month, year] = trimmedDateStr.split('/');
+        // Pega apenas a parte da data caso venha com hora (10/10/2025 10:00)
+        const cleanDateStr = dateStr.trim().split(' ')[0]; 
+        if (!/^\d{2}\/\d{2}\/\d{4}$/.test(cleanDateStr)) return null;
+        const [day, month, year] = cleanDateStr.split('/');
         return new Date(year, month - 1, day);
+    }
+
+    // Normaliza chaves do CSV (remove espaços, lower case) para evitar erro se mudar "Valor" para "valor"
+    function normalizeKeys(row) {
+        const newRow = {};
+        Object.keys(row).forEach(key => {
+            const cleanKey = key.trim().toLowerCase();
+            newRow[cleanKey] = row[key];
+        });
+        return {
+            data: newRow['data'] || '',
+            centroCusto: newRow['centro de custo'] || '',
+            credor: newRow['credor'] || '',
+            planoFinanceiro: newRow['plano financeiro'] || '',
+            valor: parseCurrency(newRow['valor'])
+        };
     }
 
     async function loadAndProcessData() {
@@ -242,24 +262,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const cacheBuster = new Date().getTime();
             let allDates = [];
 
+            // Carrega Operacionais
             const operacionaisTextData = await d3.text(operacionaisUrl + '&_=' + cacheBuster);
-            initialAllData = d3.csvParse(operacionaisTextData).map(d => ({
-                data: d.Data ? d.Data.trim() : '',
-                centroCusto: d['Centro de Custo'] ? d['Centro de Custo'].trim() : '',
-                credor: d.Credor,
-                planoFinanceiro: d['Plano financeiro'],
-                valor: parseCurrency(d.Valor) // Usa o novo parser agressivo
-            })).filter(d => d.valor !== 0);
+            initialAllData = d3.csvParse(operacionaisTextData, normalizeKeys).filter(d => d.valor !== 0);
 
+            // Carrega Excluídos
             const excluidosTextData = await d3.text(excluidosUrl + '&_=' + cacheBuster);
-            initialExcludedData = d3.csvParse(excluidosTextData).map(d => ({
-                data: d.Data ? d.Data.trim() : '',
-                centroCusto: d['Centro de Custo'] ? d['Centro de Custo'].trim() : '',
-                credor: d.Credor,
-                planoFinanceiro: d['Plano financeiro'],
-                valor: parseCurrency(d.Valor)
-            })).filter(d => d.valor !== 0);
+            initialExcludedData = d3.csvParse(excluidosTextData, normalizeKeys).filter(d => d.valor !== 0);
 
+            // Coleta datas para definir o filtro inicial
             allDates.push(...initialAllData.map(d => parseBrDate(d.data)), ...initialExcludedData.map(d => parseBrDate(d.data)));
             const validDates = allDates.filter(d => d && !isNaN(d.getTime()));
             
@@ -267,7 +278,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const minDataDados = new Date(Math.min.apply(null, validDates));
                 const maxDataDados = new Date(Math.max.apply(null, validDates));
                 
-                // Trimestre Q4 2025
+                // Configura padrão Q4 2025
                 const defaultStart = new Date(2025, 9, 1); // 01/10/2025
                 const defaultEnd = new Date(2025, 11, 31); // 31/12/2025
 
@@ -288,7 +299,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         } catch (error) {
             console.error('Erro:', error);
-            loader.textContent = 'Falha ao carregar os dados. Verifique o link das planilhas.';
+            loader.textContent = 'Falha ao carregar. Verifique se a planilha tem os cabeçalhos: Data, Centro de Custo, Credor, Plano financeiro, Valor';
         }
     }
 
@@ -338,38 +349,32 @@ document.addEventListener('DOMContentLoaded', function() {
         
         let dataForRender = [...dateFilteredAllData];
 
-        // 2. Lógica de Pró-labore (CUMULATIVA/SOMAR) no CC 1000
-        // Regra: Somar R$ 30.911,97 * número de meses do filtro
+        // 2. Inserção do Pró-labore Fixo Gerencial
         if (includeProLabore && startDateValue && endDateValue) {
-            const proLaboreStartDate = new Date(2025, 3, 1); // Abr 2025
             const proLaboreMonthlyAmount = 30911.97;
-            
             const filterStartDate = new Date(startDateValue + 'T00:00:00');
             const filterEndDate = new Date(endDateValue + 'T23:59:59');
             
-            const effectiveStartDate = new Date(Math.max(filterStartDate, proLaboreStartDate));
+            // Calcula número de meses englobados no filtro
+            const startY = filterStartDate.getFullYear();
+            const startM = filterStartDate.getMonth();
+            const endY = filterEndDate.getFullYear();
+            const endM = filterEndDate.getMonth();
             
-            if (filterEndDate >= effectiveStartDate) {
-                const endYear = filterEndDate.getFullYear();
-                const endMonth = filterEndDate.getMonth();
-                const startYear = effectiveStartDate.getFullYear();
-                const startMonth = effectiveStartDate.getMonth();
-
-                const monthsDiff = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
+            // Diferença em meses (inclusiva)
+            const monthsDiff = (endY - startY) * 12 + (endM - startM) + 1;
+            
+            if (monthsDiff > 0) {
+                const totalCalculated = monthsDiff * proLaboreMonthlyAmount;
                 
-                if (monthsDiff > 0) {
-                    const totalCalculated = monthsDiff * proLaboreMonthlyAmount;
-                    
-                    // INSERE O VALOR SOMADO
-                    dataForRender.push({
-                        centroCusto: '1000', 
-                        data: endDateValue, 
-                        planoFinanceiro: 'Pró-labore Diretoria', // Sem observação extra
-                        valor: totalCalculated, 
-                        credor: 'Diretoria',
-                        isCalculated: true
-                    });
-                }
+                dataForRender.push({
+                    centroCusto: '1000', 
+                    data: endDateValue.split('-').reverse().join('/'), 
+                    planoFinanceiro: 'Pró-labore Diretoria',
+                    valor: totalCalculated, 
+                    credor: 'Diretoria (Calculado)',
+                    isCalculated: true
+                });
             }
         }
 
@@ -425,9 +430,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         container.innerHTML = `
             <h3>Resumo Operacional (${periodText})</h3>
-            <div class="summary-item"><span>CC 1000</span><strong>${formatCurrency(total1000)}</strong></div>
-            <div class="summary-item"><span>CC 2000</span><strong>${formatCurrency(total2000)}</strong></div>
-            <div class="summary-item"><span>CC 2002</span><strong>${formatCurrency(total2002)}</strong></div>
+            <div class="summary-item"><span>CC 1000 (Adm/Diretoria)</span><strong>${formatCurrency(total1000)}</strong></div>
+            <div class="summary-item"><span>CC 2000 (Operacional)</span><strong>${formatCurrency(total2000)}</strong></div>
+            <div class="summary-item"><span>CC 2002 (Comercial)</span><strong>${formatCurrency(total2002)}</strong></div>
             <div class="summary-item total"><span>Total Operacional</span><strong>${formatCurrency(grandTotal)}</strong></div>
         `;
     }
@@ -531,7 +536,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const sortedData = Array.from(groupedData.entries()).sort((a, b) => b[1] - a[1]);
         
         sortedData.forEach(([key, value]) => {
-            // Se for a linha calculada do pró-labore, destaca
             const isCalculatedRow = key === 'Pró-labore Diretoria'; 
             const style = isCalculatedRow ? 'style="background-color: #fff3e0; font-weight:bold;"' : '';
             tableHTML += `<tr ${style}><td>${key}</td><td>${formatCurrency(value)}</td></tr>`;
@@ -601,12 +605,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td>${row.data}</td>
                 <td>${row.planoFinanceiro}</td>
                 <td>${row.centroCusto}</td>
+                <td>${row.credor}</td>
                 <td>${formatCurrency(row.valor)}</td>
             </tr>`
         ).join('');
 
         tableContentDiv.innerHTML = `<table>
-            <thead><tr><th>Data</th><th>Plano Financeiro</th><th>Centro de Custo</th><th>Valor</th></tr></thead>
+            <thead><tr><th>Data</th><th>Plano Financeiro</th><th>Centro de Custo</th><th>Credor</th><th>Valor</th></tr></thead>
             <tbody>${tableRows}</tbody>
             </table>`;
     }
