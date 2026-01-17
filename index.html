@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Financeiro 2025</title>
+    <title>Dashboard Financeiro 2025 - Fonte Única</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
@@ -140,7 +140,7 @@
 </head>
 <body>
 
-    <div id="loader">Carregando e Processando dados...</div>
+    <div id="loader">Carregando dados...</div>
 
     <div class="page-wrapper">
         <div class="filters">
@@ -193,29 +193,45 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Links das planilhas baseados nas suas queries
-    const operacionaisUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTkiy-n--R8fAEJJQD2Axayu6LbLSOfYLZsJxQ49xDp560RUzUtH1CeivSvAO71fmE_6sbSAfHvud2Z/pub?gid=974816377&single=true&output=csv';
-    const excluidosUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTkiy-n--R8fAEJJQD2Axayu6LbLSOfYLZsJxQ49xDp560RUzUtH1CeivSvAO71fmE_6sbSAfHvud2Z/pub?gid=239610435&single=true&output=csv';
     
-    let initialAllData = [];
-    let initialExcludedData = [];
+    // =========================================================================
+    // URL DA ABA "Gastos Fixos" (FONTE ÚNICA DE DADOS)
+    // =========================================================================
+    const gastosFixosUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTkiy-n--R8fAEJJQD2Axayu6LbLSOfYLZsJxQ49xDp560RUzUtH1CeivSvAO71fmE_6sbSAfHvud2Z/pub?gid=1605452357&single=true&output=csv';
+    // =========================================================================
+
+    // Listas de bloqueio (CRITÉRIOS DE EXCLUSÃO)
+    // Se o item estiver aqui, vai para a aba "Excluídos". Se não, vai para "Operacional".
+    const blockedExactMatches = [
+        'pis, cofins e csll (sobre faturamento/receita)',
+        'repasses de gestão de carteira de permuta física',
+        'cofins (sobre faturamento/receita)',
+        'pis (sobre faturamento/receita)',
+        'distribuição de dividendos',
+        'recolhimento de pis, cofins e csll'
+    ];
+    
+    const blockedContains = [
+        'pró-labore' // Remove QUALQUER pró-labore da conta operacional
+    ];
+
+    let processedOperationalData = [];
+    let processedExcludedData = [];
     let currentTab = 'cc1000';
 
     const loader = document.getElementById('loader');
     const pageWrapper = document.querySelector('.page-wrapper');
 
-    // --- FUNÇÕES DE AJUDA ---
+    // --- FUNÇÕES AUXILIARES ---
 
     function parseCurrency(value) {
         if (!value) return 0;
         let cleanStr = String(value).replace(/[^\d.,-]/g, '');
-        
         if (cleanStr.includes(',') && cleanStr.includes('.')) {
             cleanStr = cleanStr.replace(/\./g, ''); 
         } else if ((cleanStr.match(/\./g) || []).length > 1) {
             cleanStr = cleanStr.replace(/\./g, '');
         }
-
         cleanStr = cleanStr.replace(',', '.');
         const number = parseFloat(cleanStr);
         return isNaN(number) ? 0 : number;
@@ -239,27 +255,64 @@ document.addEventListener('DOMContentLoaded', function() {
             const cleanKey = key.trim().toLowerCase();
             newRow[cleanKey] = row[key];
         });
+        
         return {
             data: newRow['data'] || '',
-            centroCusto: newRow['centro de custo'] || '',
+            centroCusto: newRow['centro de custo'] || newRow['centro custo'] || '',
             credor: newRow['credor'] || '',
-            planoFinanceiro: newRow['plano financeiro'] || '',
+            planoFinanceiro: newRow['plano financeiro'] || newRow['plano'] || '',
             valor: parseCurrency(newRow['valor'])
         };
+    }
+
+    function isItemExcluded(item) {
+        // Normaliza para minúsculo e remove espaços nas pontas
+        const plano = item.planoFinanceiro.trim().toLowerCase();
+        
+        // 1. Verifica igualdade EXATA
+        if (blockedExactMatches.includes(plano)) return true;
+
+        // 2. Verifica se CONTÉM o termo
+        for (let term of blockedContains) {
+            if (plano.includes(term)) return true;
+        }
+
+        return false;
     }
 
     async function loadAndProcessData() {
         try {
             const cacheBuster = new Date().getTime();
+            
+            // Carrega a Fonte Única
+            const rawTextData = await d3.text(gastosFixosUrl + '&_=' + cacheBuster);
+            const allRawData = d3.csvParse(rawTextData, normalizeKeys).filter(d => d.valor !== 0);
+
+            // Reseta arrays
+            processedOperationalData = [];
+            processedExcludedData = [];
             let allDates = [];
 
-            const operacionaisTextData = await d3.text(operacionaisUrl + '&_=' + cacheBuster);
-            initialAllData = d3.csvParse(operacionaisTextData, normalizeKeys).filter(d => d.valor !== 0);
+            // === O GRANDE FILTRO ===
+            allRawData.forEach(item => {
+                // Filtro de Segurança: Só aceita CCs válidos
+                const cc = String(item.centroCusto).trim();
+                if (cc !== '1000' && cc !== '2000' && cc !== '2002') {
+                    // Item ignorado (CC inválido ou vazio)
+                    return; 
+                }
 
-            const excluidosTextData = await d3.text(excluidosUrl + '&_=' + cacheBuster);
-            initialExcludedData = d3.csvParse(excluidosTextData, normalizeKeys).filter(d => d.valor !== 0);
+                // Decide o destino: Operacional ou Excluído
+                if (isItemExcluded(item)) {
+                    processedExcludedData.push(item);
+                } else {
+                    processedOperationalData.push(item);
+                }
 
-            allDates.push(...initialAllData.map(d => parseBrDate(d.data)), ...initialExcludedData.map(d => parseBrDate(d.data)));
+                allDates.push(parseBrDate(item.data));
+            });
+
+            // Configuração dos Inputs de Data
             const validDates = allDates.filter(d => d && !isNaN(d.getTime()));
             
             if (validDates.length > 0) {
@@ -286,7 +339,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         } catch (error) {
             console.error('Erro:', error);
-            loader.textContent = 'Falha ao carregar. Verifique se a planilha tem os cabeçalhos: Data, Centro de Custo, Credor, Plano financeiro, Valor';
+            loader.textContent = 'Erro ao carregar dados. Verifique o link e permissões da planilha.';
         }
     }
 
@@ -314,8 +367,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const endDateValue = document.getElementById('end-date-filter').value;
         const includeProLabore = document.getElementById('include-prolabore-filter').checked;
         
-        let dateFilteredAllData;
-        let dateFilteredExcludedData;
+        let dateFilteredOperational;
+        let dateFilteredExcluded;
 
         // 1. Filtragem de Data
         if (startDateValue && endDateValue) {
@@ -327,16 +380,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 return itemDate && itemDate >= start && itemDate <= end;
             };
 
-            dateFilteredAllData = initialAllData.filter(filterByDate);
-            dateFilteredExcludedData = initialExcludedData.filter(filterByDate);
+            dateFilteredOperational = processedOperationalData.filter(filterByDate);
+            dateFilteredExcluded = processedExcludedData.filter(filterByDate);
         } else {
-            dateFilteredAllData = [...initialAllData];
-            dateFilteredExcludedData = [...initialExcludedData];
+            dateFilteredOperational = [...processedOperationalData];
+            dateFilteredExcluded = [...processedExcludedData];
         }
         
-        let dataForRender = [...dateFilteredAllData];
+        let dataForRender = [...dateFilteredOperational];
 
-        // 2. Inserção do Pró-labore Fixo Gerencial
+        // 2. Inserção do Pró-labore Fixo (Calculado)
         if (includeProLabore && startDateValue && endDateValue) {
             const proLaboreMonthlyAmount = 30911.97;
             const filterStartDate = new Date(startDateValue + 'T00:00:00');
@@ -365,7 +418,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const isExcludedTab = currentTab === 'excluded' || currentTab === 'excluded-chart';
         if (isExcludedTab) {
-            renderExcludedSummary(dateFilteredExcludedData);
+            renderExcludedSummary(dateFilteredExcluded);
         } else {
             renderMainSummary(dataForRender);
         }
@@ -380,13 +433,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 renderTotalGeral(dataForRender);
                 break;
             case 'excluded':
-                renderExcludedTab(dateFilteredExcludedData);
+                renderExcludedTab(dateFilteredExcluded);
                 break;
             case 'chart':
                 renderComparisonChart(dataForRender);
                 break;
             case 'excluded-chart':
-                renderExcludedChart(dateFilteredExcludedData);
+                renderExcludedChart(dateFilteredExcluded);
                 break;
         }
     }
@@ -404,7 +457,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return 'Todo o Período';
     }
 
-    // --- AQUI FOI O AJUSTE SOLICITADO ---
     function renderMainSummary(data) {
         const container = document.getElementById('summary-panel');
         const periodText = getPeriodText();
@@ -414,7 +466,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const total2002 = d3.sum(data.filter(d => d.centroCusto === '2002'), d => d.valor);
         const grandTotal = total1000 + total2000 + total2002;
 
-        // Removidos os textos "(Adm/Diretoria)", "(Operacional)", etc.
         container.innerHTML = `
             <h3>Resumo Operacional (${periodText})</h3>
             <div class="summary-item"><span>CC 1000</span><strong>${formatCurrency(total1000)}</strong></div>
