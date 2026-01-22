@@ -3,45 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Financeiro 2025 - Auditoria Avançada</title>
+    <title>Dashboard Financeiro 2025 - Ajustado</title>
+    <!-- Bibliotecas Externas -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    
+    <!-- Estilos CSS -->
     <style>
         :root {
             --color-orange: #FF7F0E;
             --color-blue: #1f77b4;
             --color-green: #2ca02c;
-            --color-red: #d62728;
             --color-light-gray: #f4f4f4;
-            --color-medium-gray: #dddddd;
-            --color-dark-gray-main: #333;
+            --color-medium-gray: #e0e0e0;
+            --color-dark-gray: #333;
             --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
+
+        * { box-sizing: border-box; }
+
         body {
             font-family: var(--font-family);
             background-color: var(--color-light-gray);
-            color: var(--color-dark-gray-main);
+            color: var(--color-dark-gray);
             margin: 0;
             padding: 20px;
         }
+
+        h1, h2, h3 { margin-top: 0; }
+
+        /* Loader */
         #loader {
             position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 1.5em;
+            top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(255,255,255,0.95);
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: var(--color-orange);
             z-index: 9999;
-            text-align: center;
         }
+
+        /* Layout Principal */
         .page-wrapper {
-            display: none;
+            display: none; /* Escondido até carregar */
             flex-direction: column;
             gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
         }
+
+        /* Filtros */
         .filters {
             display: flex;
             flex-wrap: wrap;
@@ -57,610 +71,659 @@
             align-items: center;
             gap: 8px;
         }
-        .filter-item label { font-weight: 600; font-size: 0.9em; }
-        .filter-item input[type="date"] { padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
-        
+        input[type="date"], select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        /* Painel de Resumo (Cards) */
         #summary-panel {
-            background-color: white;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .card {
+            background: white;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
-        .summary-card {
-            border: 1px solid #eee;
-            border-radius: 6px;
-            padding: 15px;
-        }
-        .summary-card h3 { margin-top: 0; font-size: 1em; color: #666; border-bottom: 2px solid var(--color-orange); padding-bottom: 5px; }
-        .summary-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.9em; }
-        .summary-total { font-weight: bold; font-size: 1.1em; border-top: 1px solid #ddd; margin-top: 10px; padding-top: 5px; display: flex; justify-content: space-between; }
-        
+        .card h4 { margin: 0 0 5px 0; color: #666; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px; }
+        .card .value { font-size: 1.4em; font-weight: bold; color: var(--color-dark-gray); }
+        .card.total .value { color: var(--color-orange); }
+
+        /* Navegação de Abas */
         .tab-nav {
             display: flex;
             gap: 10px;
-            background-color: white;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             overflow-x: auto;
+            padding-bottom: 5px;
+            border-bottom: 2px solid var(--color-medium-gray);
         }
         .tab-button {
             padding: 10px 20px;
             border: none;
-            background-color: #eee;
-            border-radius: 5px;
+            background: none;
             cursor: pointer;
-            transition: all 0.2s;
             font-weight: 600;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
             white-space: nowrap;
         }
-        .tab-button:hover { background-color: #ddd; }
+        .tab-button:hover { background-color: rgba(0,0,0,0.05); }
         .tab-button.active {
-            background-color: var(--color-orange);
-            color: white;
-        }
-        .tab-button.audit-btn {
-            background-color: #ffebee;
-            color: var(--color-red);
-            border: 1px solid var(--color-red);
-        }
-        .tab-button.audit-btn.active {
-            background-color: var(--color-red);
-            color: white;
+            color: var(--color-orange);
+            border-bottom-color: var(--color-orange);
         }
 
+        /* Conteúdo das Abas */
+        .tab-content { background: white; padding: 20px; border-radius: 0 0 8px 8px; min-height: 400px; }
         .tab-pane { display: none; animation: fadeIn 0.3s; }
         .tab-pane.active { display: block; }
-        
+
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background-color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-top: 10px;
+        /* Seções dentro das abas */
+        .section-header {
+            margin-top: 30px;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid var(--color-medium-gray);
+            color: var(--color-dark-gray);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        th, td {
-            padding: 12px;
-            border-bottom: 1px solid var(--color-medium-gray);
-            text-align: left;
-        }
-        th { background-color: var(--color-dark-gray-main); color: white; position: sticky; top: 0; }
-        tr:hover { background-color: #f9f9f9; }
+        .section-header:first-child { margin-top: 0; }
+        .section-title { font-size: 1.2em; font-weight: bold; }
+        .section-total { font-weight: bold; font-size: 1.1em; }
 
-        /* Estilos específicos para a Auditoria */
-        .audit-section { margin-top: 20px; }
-        .audit-section h4 { border-left: 5px solid var(--color-red); padding-left: 10px; color: #333; margin-bottom: 10px; }
-        .diff-positive { color: red; font-weight: bold; } /* Planilha maior que PDF */
-        .diff-negative { color: green; font-weight: bold; } /* Planilha menor que PDF */
-        .diff-ok { color: #ccc; }
+        /* Tabelas */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.95em; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: #f8f9fa; font-weight: 600; color: #444; position: sticky; top: 0; }
+        tr:hover { background-color: #fefefe; }
+        .row-calculated { background-color: #fff8e1; color: #d35400; font-style: italic; } /* Amarelo claro para calculados */
 
-        .multiselect { position: relative; display: inline-block; }
-        .multiselect-options {
-            display: none;
-            position: absolute;
-            background-color: white;
-            border: 1px solid #ccc;
-            max-height: 300px;
-            overflow-y: auto;
-            z-index: 1000;
-            padding: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            width: 300px;
-            border-radius: 4px;
+        /* Multi-Select Customizado */
+        .multiselect-container { margin-bottom: 15px; position: relative; }
+        .multiselect-btn {
+            background: white; border: 1px solid #ccc; padding: 8px 12px;
+            border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 300px;
         }
-        .multiselect-options.active { display: block; }
-        .multiselect-options label { display: block; padding: 5px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
+        .multiselect-dropdown {
+            display: none; position: absolute; top: 100%; left: 0;
+            background: white; border: 1px solid #ccc; width: 300px;
+            max-height: 300px; overflow-y: auto; z-index: 100;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 4px;
+        }
+        .multiselect-dropdown.show { display: block; }
+        .multiselect-option { padding: 8px; display: block; cursor: pointer; }
+        .multiselect-option:hover { background-color: #f1f1f1; }
+        .multiselect-option input { margin-right: 8px; }
 
         @media (max-width: 768px) {
-            #summary-panel { grid-template-columns: 1fr; }
             .filters { flex-direction: column; align-items: stretch; }
-            th, td { padding: 8px; font-size: 0.85em; }
+            .multiselect-btn { width: 100%; }
+            .multiselect-dropdown { width: 100%; }
         }
     </style>
 </head>
 <body>
 
     <div id="loader">
-        <div style="margin-bottom: 10px;">🔄</div>
-        Processando dados da planilha...
+        <div>Carregando e Processando Dados...</div>
     </div>
 
     <div class="page-wrapper">
+        
+        <!-- Filtros do Dashboard -->
         <div class="filters">
             <div class="filter-item">
-                <label for="start-date-filter">De:</label>
-                <input type="date" id="start-date-filter">
+                <label>Período:</label>
+                <input type="date" id="start-date">
+                <span>até</span>
+                <input type="date" id="end-date">
             </div>
-            <div class="filter-item">
-                <label for="end-date-filter">Até:</label>
-                <input type="date" id="end-date-filter">
-            </div>
-            <div class="filter-item" style="margin-left: auto; background: #fff3e0; padding: 5px 10px; border-radius: 4px;">
-                <input type="checkbox" id="include-prolabore-filter" checked>
-                <label for="include-prolabore-filter">Injetar Pró-labore Fixo</label>
+            <div class="filter-item" style="margin-left: auto;">
+                <!-- PADRÃO DESMARCADO para evitar somar valor fictício no CC 1000 -->
+                <input type="checkbox" id="check-prolabore">
+                <label for="check-prolabore">Projetar Pró-labore Fixo (Diretoria)</label>
             </div>
         </div>
 
-        <div id="summary-panel"></div>
+        <!-- Resumo Visual (Cards) -->
+        <div id="summary-panel">
+            <!-- Cards serão injetados aqui via JS -->
+        </div>
 
+        <!-- Navegação -->
         <div class="tab-nav">
-            <button class="tab-button active" data-tab="cc1000">CC 1000</button>
-            <button class="tab-button" data-tab="cc2000">CC 2000</button>
-            <button class="tab-button" data-tab="cc2002">CC 2002</button>
-            <button class="tab-button" data-tab="total">Total Geral</button>
-            <button class="tab-button" data-tab="chart">Gráfico</button>
-            <!-- Nova Aba de Investigação -->
-            <button class="tab-button audit-btn" data-tab="investigation">🕵️ Investigação CC 2000</button>
-            <button class="tab-button" data-tab="excluded">Excluídos</button>
+            <button class="tab-button active" onclick="switchTab('cc1000')">CC 1000</button>
+            <button class="tab-button" onclick="switchTab('cc2000')">CC 2000</button>
+            <button class="tab-button" onclick="switchTab('cc2002')">CC 2002</button>
+            <button class="tab-button" onclick="switchTab('total')">Total Geral</button>
+            <button class="tab-button" onclick="switchTab('chart')">Gráfico Operacional</button>
+            <button class="tab-button" onclick="switchTab('excluded')">Todos Excluídos</button>
+            <button class="tab-button" onclick="switchTab('excluded-chart')">Gráfico Excluídos</button>
         </div>
 
+        <!-- Conteúdo -->
         <div class="tab-content">
-            <div id="cc1000" class="tab-pane active"><div id="table-container-cc1000"></div></div>
-            <div id="cc2000" class="tab-pane"><div id="table-container-cc2000"></div></div>
-            <div id="cc2002" class="tab-pane"><div id="table-container-cc2002"></div></div>
-            <div id="total" class="tab-pane"><div id="table-container-total"></div></div>
+            <div id="cc1000" class="tab-pane active"></div>
+            <div id="cc2000" class="tab-pane"></div>
+            <div id="cc2002" class="tab-pane"></div>
+            <div id="total" class="tab-pane"></div>
             <div id="chart" class="tab-pane"></div>
-            
-            <!-- Conteúdo da Investigação -->
-            <div id="investigation" class="tab-pane">
-                <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #ffc107;">
-                    <strong>Objetivo:</strong> Encontrar a diferença de <strong>R$ 284.797,57</strong> no CC 2000. 
-                    Abaixo comparamos sua planilha com os valores oficiais do PDF (Relatório Sienge).
-                </div>
-                <div id="investigation-content"></div>
-            </div>
-
-            <div id="excluded" class="tab-pane"><div id="table-container-excluded"></div></div>
+            <div id="excluded" class="tab-pane"></div>
+            <div id="excluded-chart" class="tab-pane"></div>
         </div>
+
     </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+    // ================= CONFIGURAÇÃO =================
+    const GASTOS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTkiy-n--R8fAEJJQD2Axayu6LbLSOfYLZsJxQ49xDp560RUzUtH1CeivSvAO71fmE_6sbSAfHvud2Z/pub?gid=1605452357&single=true&output=csv';
     
-    const gastosFixosUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTkiy-n--R8fAEJJQD2Axayu6LbLSOfYLZsJxQ49xDp560RUzUtH1CeivSvAO71fmE_6sbSAfHvud2Z/pub?gid=1605452357&single=true&output=csv';
-
-    // Valores oficiais extraídos do PDF "relatorio.pdf" para o CC 2000
-    const PDF_TARGETS = {
-        '10-2025': 337615.63,
-        '11-2025': 234463.02,
-        '12-2025': 295214.09,
-        'total': 867292.74
+    // Regras de Exclusão (Lógica de Negócio)
+    // Tudo aqui deve estar sem acento e minúsculo para a lógica de normalização funcionar
+    const EXCLUSION_RULES = {
+        exact: [
+            'pis, cofins e csll (sobre faturamento/receita)', 
+            'repasses de gestao de carteira de permuta fisica', 
+            'cofins (sobre faturamento/receita)', 
+            'pis (sobre faturamento/receita)',
+            'distribuicao de dividendos', 
+            'recolhimento de pis, cofins e csll'
+        ],
+        contains: ['pro-labore', 'pro labore'] 
     };
 
-    const blockedExactMatches = [
-        'pis, cofins e csll (sobre faturamento/receita)',
-        'repasses de gestão de carteira de permuta física',
-        'cofins (sobre faturamento/receita)',
-        'pis (sobre faturamento/receita)',
-        'distribuição de dividendos',
-        'recolhimento de pis, cofins e csll'
-    ];
-    
-    const blockedContains = ['pró-labore', 'pro-labore', 'pro labore'];
+    // Lista Negra (Itens que nunca devem ser somados - Saldos, Totais, etc)
+    // REFORÇADO: Adicionado 'subtotal', 'total' isolado, 'transporte'
+    const BLACKLIST_TERMS = ['saldo anterior', 'saldo final', 'total geral', 'total do periodo', 'resumo financeiro', 'subtotal', 'transportado', 'a transportar'];
 
-    let mappedData = [];
-    let currentTab = 'cc1000';
+    // Estado Global
+    let STATE = {
+        rawData: [],           
+        operationalData: [],   
+        excludedData: [],      
+        currentTab: 'cc1000',
+        filters: {
+            start: null,
+            end: null,
+            includeProLabore: false 
+        }
+    };
 
-    const loader = document.getElementById('loader');
-    const pageWrapper = document.querySelector('.page-wrapper');
+    // ================= UTILITÁRIOS =================
 
-    // --- FUNÇÕES DE UTILS ---
-
-    function normalizeString(str) {
-        if (!str) return "";
-        return str.toString().toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    // Função CRÍTICA: Remove acentos e padroniza texto para comparação
+    function normalizeText(text) {
+        if (!text) return '';
+        return text.toString()
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "") // Remove acentos
+            .trim();
     }
 
     function parseCurrency(value) {
+        if (typeof value === 'number') return value;
         if (!value) return 0;
-        let cleanStr = String(value).trim();
-        cleanStr = cleanStr.replace(/[^\d.,-]/g, ''); 
-        if (cleanStr === '') return 0;
-        if (cleanStr.includes(',') && !cleanStr.includes('.')) {
-            cleanStr = cleanStr.replace(',', '.');
-        } else if (cleanStr.includes('.') && cleanStr.includes(',')) {
-            if (cleanStr.indexOf('.') < cleanStr.indexOf(',')) {
-                cleanStr = cleanStr.replace(/\./g, '').replace(',', '.');
-            } else {
-                cleanStr = cleanStr.replace(/,/g, '');
-            }
+        let str = String(value).trim();
+        str = str.replace(/[R$]/gi, '').trim();
+
+        let sign = 1;
+        if (str.includes('(') && str.includes(')')) {
+            sign = -1;
+            str = str.replace(/[()]/g, '');
+        } else if (str.startsWith('-')) {
+            sign = -1;
         }
-        const number = parseFloat(cleanStr);
-        return isNaN(number) ? 0 : number;
+
+        const lastCommaIndex = str.lastIndexOf(',');
+        const lastDotIndex = str.lastIndexOf('.');
+
+        if (lastCommaIndex > lastDotIndex) {
+            str = str.replace(/\./g, '').replace(',', '.');
+        } else {
+            str = str.replace(/,/g, '');
+        }
+
+        const num = parseFloat(str);
+        return isNaN(num) ? 0 : num * sign;
     }
-    
+
     function formatCurrency(value) {
         return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
     }
-    
-    function parseBrDate(dateStr) {
+
+    function parseDate(dateStr) {
         if (!dateStr) return null;
-        let clean = dateStr.trim().split(' ')[0];
-        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(clean)) {
-            const parts = clean.split('/');
-            return new Date(parts[2], parts[1] - 1, parts[0]);
+        dateStr = dateStr.trim();
+        if (dateStr.includes('/')) {
+            const parts = dateStr.split('/');
+            if (parts.length === 3) return new Date(parts[2], parts[1] - 1, parts[0]);
         }
-        if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
-            const parts = clean.split('-');
-            return new Date(parts[0], parts[1] - 1, parts[2]);
+        if (dateStr.includes('-')) {
+            const parts = dateStr.split('-');
+            if (parts.length === 3) return new Date(parts[0], parts[1] - 1, parts[2]);
         }
         return null;
     }
 
-    function identifyColumns(headerRow) {
-        const keys = Object.keys(headerRow);
-        const map = { data: null, cc: null, valor: null, plano: null, credor: null };
-        keys.forEach(k => {
-            const norm = normalizeString(k);
-            if (norm === 'data') map.data = k;
-            else if (norm.includes('centro') && norm.includes('custo')) map.cc = k;
-            else if (norm === 'valor') map.valor = k;
-            else if (norm.includes('plano')) map.plano = k;
-            else if (norm === 'credor' || norm === 'fornecedor') map.credor = k;
-        });
-        return map;
-    }
+    // ================= LÓGICA CORE =================
 
-    async function loadData() {
+    async function init() {
         try {
-            const cacheBuster = new Date().getTime();
-            const data = await d3.csv(gastosFixosUrl + '&_=' + cacheBuster);
-            if (data.length === 0) throw new Error("Planilha vazia");
-            const colMap = identifyColumns(data[0]);
+            const response = await fetch(GASTOS_URL + '&t=' + Date.now());
+            const csvText = await response.text();
             
-            mappedData = data.map(row => {
-                const rawCC = String(row[colMap.cc] || '').trim();
-                let ccClean = rawCC.split('.')[0]; 
+            // 1. Parsing Direto (SEM DEDUPLICAÇÃO - Corrigido CC 1000)
+            const rawData = d3.csvParse(csvText, (d) => {
+                const keys = Object.keys(d);
+                const normalized = {};
+                keys.forEach(k => normalized[k.trim().toLowerCase()] = d[k]);
+                
+                const valor = parseCurrency(normalized['valor']);
+                if (valor === 0) return null;
+
+                const plano = (normalized['plano financeiro'] || normalized['plano'] || '').trim();
+                const credor = (normalized['credor'] || '').trim();
+
+                // Filtro de Blacklist REFORÇADO (Saldos e Totais)
+                // Verifica tanto no Plano Financeiro quanto no Credor
+                const planoNorm = normalizeText(plano);
+                const credorNorm = normalizeText(credor);
+                
+                // Se contiver qualquer termo da blacklist ou a palavra "total" isolada/inicio
+                if (BLACKLIST_TERMS.some(term => planoNorm.includes(term) || credorNorm.includes(term))) return null;
+                if (planoNorm === 'total' || planoNorm.startsWith('total ')) return null;
+
                 return {
-                    original: row,
-                    data: parseBrDate(row[colMap.data]),
-                    dataStr: row[colMap.data],
-                    centroCusto: ccClean,
-                    planoFinanceiro: String(row[colMap.plano] || '').trim(),
-                    credor: String(row[colMap.credor] || '').trim(),
-                    valor: parseCurrency(row[colMap.valor])
+                    dataOriginal: normalized['data'],
+                    dataObj: parseDate(normalized['data']),
+                    plano: plano,
+                    cc: (normalized['centro de custo'] || normalized['centro custo'] || '').trim(),
+                    credor: credor,
+                    valor: valor,
+                    origem: 'csv'
                 };
-            }).filter(d => d.valor !== 0 && d.data !== null);
+            });
 
-            // Filtros Data Padrão
-            const validDates = mappedData.map(d => d.data).filter(d => d);
-            if (validDates.length > 0) {
-                document.getElementById('start-date-filter').value = '2025-10-01';
-                document.getElementById('end-date-filter').value = '2025-12-31';
-            }
-
+            // 2. Filtra nulos e CCs válidos
+            STATE.rawData = rawData.filter(d => d !== null && ['1000', '2000', '2002'].includes(d.cc));
+            
+            classifyData();
+            setupInitialFilters();
             setupEventListeners();
             updateDashboard();
-            loader.style.display = 'none';
-            pageWrapper.style.display = 'flex';
+            
+            document.getElementById('loader').style.display = 'none';
+            document.querySelector('.page-wrapper').style.display = 'flex';
 
         } catch (error) {
             console.error(error);
-            loader.innerHTML = `<span style="color:red">Erro: ${error.message}</span>`;
+            document.getElementById('loader').innerHTML = `<div style="color:red">Erro ao carregar dados:<br>${error.message}</div>`;
         }
     }
 
-    function isExcluded(item) {
-        const plano = normalizeString(item.planoFinanceiro);
-        if (blockedExactMatches.some(m => normalizeString(m) === plano)) return true;
-        if (blockedContains.some(term => plano.includes(normalizeString(term)))) return true;
-        return false;
-    }
+    function classifyData() {
+        STATE.operationalData = [];
+        STATE.excludedData = [];
 
-    function getFilteredData() {
-        const startStr = document.getElementById('start-date-filter').value;
-        const endStr = document.getElementById('end-date-filter').value;
-        const start = startStr ? new Date(startStr + 'T00:00:00') : new Date(0);
-        const end = endStr ? new Date(endStr + 'T23:59:59') : new Date(9999, 11, 31);
+        STATE.rawData.forEach(item => {
+            const planoNormalized = normalizeText(item.plano);
+            let isExcluded = false;
 
-        const periodData = mappedData.filter(d => {
-            const validDate = d.data >= start && d.data <= end;
-            const validCC = ['1000', '2000', '2002'].includes(d.centroCusto);
-            return validDate && validCC;
-        });
+            if (EXCLUSION_RULES.exact.includes(planoNormalized)) isExcluded = true;
+            
+            if (!isExcluded) {
+                for (const term of EXCLUSION_RULES.contains) {
+                    if (planoNormalized.includes(term)) {
+                        isExcluded = true;
+                        break;
+                    }
+                }
+            }
 
-        const operational = [];
-        const excluded = [];
-
-        periodData.forEach(item => {
-            if (isExcluded(item)) {
-                excluded.push(item);
+            if (isExcluded) {
+                STATE.excludedData.push(item);
             } else {
-                operational.push(item);
+                STATE.operationalData.push(item);
             }
         });
-
-        return { operational, excluded, start, end };
     }
 
-    function generateCalculatedProLabore(start, end) {
-        const monthlyAmount = 30911.97;
-        const items = [];
-        let current = new Date(start.getFullYear(), start.getMonth(), 1);
-        const loopEnd = new Date(end.getFullYear(), end.getMonth(), 1);
-        while (current <= loopEnd) {
-            items.push({
-                centroCusto: '1000',
-                dataStr: `01/${current.getMonth()+1}/${current.getFullYear()} (Ref)`,
-                data: new Date(current),
-                planoFinanceiro: 'Pró-labore Diretoria (Injetado)',
-                valor: monthlyAmount,
-                credor: 'Diretoria',
-                isArtificial: true
-            });
-            current.setMonth(current.getMonth() + 1);
+    function getFilteredData(type) {
+        let baseData = (type === 'excluded') ? [...STATE.excludedData] : [...STATE.operationalData];
+        
+        // Filtro Data
+        if (STATE.filters.start && STATE.filters.end) {
+            baseData = baseData.filter(d => 
+                d.dataObj && d.dataObj >= STATE.filters.start && d.dataObj <= STATE.filters.end
+            );
         }
-        return items;
+
+        // Injeção de Pró-labore (Só se checkbox estiver marcado)
+        if (type === 'operational' && STATE.filters.includeProLabore && STATE.filters.start && STATE.filters.end) {
+            const startY = STATE.filters.start.getFullYear();
+            const startM = STATE.filters.start.getMonth();
+            const endY = STATE.filters.end.getFullYear();
+            const endM = STATE.filters.end.getMonth();
+            
+            const monthsDiff = (endY - startY) * 12 + (endM - startM) + 1;
+            
+            if (monthsDiff > 0) {
+                const PRO_LABORE_MENSAL = 30911.97; 
+                const proLaboreTotal = PRO_LABORE_MENSAL * monthsDiff;
+                baseData.push({
+                    plano: 'Pró-labore Diretoria (Calculado)',
+                    cc: '1000',
+                    credor: 'Lançamento Automático',
+                    dataOriginal: '-',
+                    valor: proLaboreTotal,
+                    origem: 'system'
+                });
+            }
+        }
+
+        return baseData;
     }
+
+    // ================= RENDERIZAÇÃO =================
 
     function updateDashboard() {
-        const { operational, excluded, start, end } = getFilteredData();
-        const includeArtificial = document.getElementById('include-prolabore-filter').checked;
+        const startVal = document.getElementById('start-date').value;
+        const endVal = document.getElementById('end-date').value;
+        STATE.filters.start = startVal ? new Date(startVal + 'T00:00:00') : null;
+        STATE.filters.end = endVal ? new Date(endVal + 'T23:59:59') : null;
+        STATE.filters.includeProLabore = document.getElementById('check-prolabore').checked;
 
-        renderSummary(operational, excluded);
+        const opData = getFilteredData('operational');
+        const exData = getFilteredData('excluded');
 
-        let displayOperational = [...operational];
-        if (includeArtificial) {
-            const artificialItems = generateCalculatedProLabore(start, end);
-            displayOperational = [...displayOperational, ...artificialItems];
-        }
-
-        const isExcludedTab = currentTab === 'excluded';
-        const dataToRender = isExcludedTab ? excluded : displayOperational;
-
-        if (currentTab === 'investigation') {
-            // A investigação usa APENAS dados operacionais reais (sem Pró-labore injetado)
-            renderInvestigation(operational.filter(d => d.centroCusto === '2000'));
-        } else if (currentTab.startsWith('cc')) {
-            const cc = currentTab.replace('cc', '');
-            renderTable(dataToRender.filter(d => d.centroCusto === cc), `table-container-${currentTab}`);
-        } else if (currentTab === 'total') {
-            renderTable(dataToRender, 'table-container-total');
-        } else if (currentTab === 'chart') {
-            renderChart(displayOperational, 'chart');
-        } else if (currentTab === 'excluded') {
-            renderExcludedTable(dataToRender, 'table-container-excluded');
-        }
+        renderSummaryCards(opData, exData);
+        renderCurrentTab(opData, exData);
     }
 
-    // --- NOVA FUNÇÃO DE INVESTIGAÇÃO ---
-    function renderInvestigation(dataCC2000) {
-        const container = document.getElementById('investigation-content');
+    function renderSummaryCards(opData, exData) {
+        const sumOp = (cc) => d3.sum(opData.filter(d => cc === 'total' || d.cc === cc), d => d.valor);
+        const sumEx = (cc) => d3.sum(exData.filter(d => cc === 'total' || d.cc === cc), d => d.valor);
         
-        // 1. Agrupar por Mês
-        const months = ['10-2025', '11-2025', '12-2025'];
-        let monthlyHtml = `
-            <div class="audit-section">
-                <h4>1. Conferência Mensal (CC 2000)</h4>
-                <table>
-                    <thead><tr><th>Mês</th><th>Sua Planilha</th><th>Relatório PDF (Meta)</th><th>Diferença</th></tr></thead>
-                    <tbody>
-        `;
-
-        let totalDiff = 0;
-
-        months.forEach(key => {
-            const [m, y] = key.split('-');
-            const monthData = dataCC2000.filter(d => (d.data.getMonth() + 1) === parseInt(m) && d.data.getFullYear() === parseInt(y));
-            const sheetTotal = d3.sum(monthData, d => d.valor);
-            const pdfTotal = PDF_TARGETS[key];
-            const diff = sheetTotal - pdfTotal;
-            totalDiff += diff;
-
-            const diffClass = diff > 1 ? 'diff-positive' : (diff < -1 ? 'diff-negative' : 'diff-ok');
-            const diffSign = diff > 0 ? '+' : '';
-
-            monthlyHtml += `
-                <tr>
-                    <td>${key}</td>
-                    <td>${formatCurrency(sheetTotal)}</td>
-                    <td>${formatCurrency(pdfTotal)}</td>
-                    <td class="${diffClass}">${diffSign}${formatCurrency(diff)}</td>
-                </tr>
-            `;
-        });
-        
-        // Totalizador
-        monthlyHtml += `
-            <tr style="background:#eee; font-weight:bold;">
-                <td>TOTAL</td>
-                <td>${formatCurrency(d3.sum(dataCC2000, d => d.valor))}</td>
-                <td>${formatCurrency(PDF_TARGETS['total'])}</td>
-                <td class="${totalDiff > 1 ? 'diff-positive' : 'diff-ok'}">${totalDiff > 0 ? '+' : ''}${formatCurrency(totalDiff)}</td>
-            </tr>
-            </tbody></table></div>
-        `;
-
-        // 2. Ranking de Credores (Top 10)
-        const creditors = d3.rollup(dataCC2000, v => d3.sum(v, d => d.valor), d => d.credor);
-        const topCreditors = Array.from(creditors).sort((a,b) => b[1] - a[1]).slice(0, 15);
-
-        let rankingHtml = `
-            <div class="audit-section">
-                <h4>2. Ranking de Credores - CC 2000 (Top 15)</h4>
-                <p style="font-size:0.9em; color:#666;">Verifique se algum destes valores está muito acima do esperado.</p>
-                <table>
-                    <thead><tr><th>Credor</th><th>Total na Planilha</th></tr></thead>
-                    <tbody>
-        `;
-        topCreditors.forEach(([credor, val]) => {
-            rankingHtml += `<tr><td>${credor}</td><td>${formatCurrency(val)}</td></tr>`;
-        });
-        rankingHtml += `</tbody></table></div>`;
-
-        // 3. Detectar Duplicatas Exatas (Data + Valor + Credor)
-        const groups = d3.group(dataCC2000, d => `${d.dataStr}_${d.valor}_${normalizeString(d.credor)}`);
-        const duplicates = Array.from(groups.values()).filter(g => g.length > 1);
-
-        let dupHtml = `
-            <div class="audit-section">
-                <h4>3. Possíveis Duplicatas (Mesma Data, Valor e Credor)</h4>
-                ${duplicates.length === 0 ? '<p>Nenhuma duplicata exata encontrada.</p>' : '<table><thead><tr><th>Data</th><th>Credor</th><th>Valor Unit.</th><th>Qtd.</th><th>Total Somado</th></tr></thead><tbody>'}
-        `;
-        
-        duplicates.forEach(group => {
-            const item = group[0];
-            dupHtml += `
-                <tr style="background:#ffebee">
-                    <td>${item.dataStr}</td>
-                    <td>${item.credor}</td>
-                    <td>${formatCurrency(item.valor)}</td>
-                    <td style="font-weight:bold; color:red;">${group.length}x</td>
-                    <td>${formatCurrency(d3.sum(group, d => d.valor))}</td>
-                </tr>
-            `;
-        });
-        if (duplicates.length > 0) dupHtml += `</tbody></table>`;
-        dupHtml += `</div>`;
-
-        container.innerHTML = monthlyHtml + rankingHtml + dupHtml;
-    }
-
-    function renderSummary(opData, exclData) {
-        const container = document.getElementById('summary-panel');
-        const sumByCC = (data, cc) => d3.sum(data.filter(d => d.centroCusto === cc), d => d.valor);
-
-        const op1000 = sumByCC(opData, '1000');
-        const op2000 = sumByCC(opData, '2000');
-        const op2002 = sumByCC(opData, '2002');
-        
-        container.innerHTML = `
-            <div class="summary-card"><h3>CC 1000</h3><div class="summary-total">${formatCurrency(op1000)}</div></div>
-            <div class="summary-card"><h3>CC 2000</h3><div class="summary-total">${formatCurrency(op2000)}</div></div>
-            <div class="summary-card"><h3>CC 2002</h3><div class="summary-total">${formatCurrency(op2002)}</div></div>
-            <div class="summary-card" style="border-color: #333;"><h3>Total Geral</h3><div class="summary-total">${formatCurrency(op1000+op2000+op2002)}</div></div>
-        `;
-    }
-
-    function createOrGetMultiselect(containerId, data, callback) {
-        let wrapper = document.getElementById(`wrapper-${containerId}`);
-        if (!wrapper) {
-            const container = document.getElementById(containerId);
-            container.innerHTML = '';
+        const html = `
+            <!-- Linha 1: Operacional -->
+            <div class="card"><h4>CC 1000 (Op)</h4><div class="value">${formatCurrency(sumOp('1000'))}</div></div>
+            <div class="card"><h4>CC 2000 (Op)</h4><div class="value">${formatCurrency(sumOp('2000'))}</div></div>
+            <div class="card"><h4>CC 2002 (Op)</h4><div class="value">${formatCurrency(sumOp('2002'))}</div></div>
+            <div class="card total"><h4>Total Operacional</h4><div class="value">${formatCurrency(sumOp('total'))}</div></div>
             
-            const uniquePlans = [...new Set(data.map(d => d.planoFinanceiro))].sort();
-            
-            wrapper = document.createElement('div');
-            wrapper.id = `wrapper-${containerId}`;
-            wrapper.innerHTML = `
-                <div style="margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
-                    <div class="multiselect">
-                        <button class="tab-button" onclick="document.getElementById('opts-${containerId}').classList.toggle('active')">
-                            Filtrar por Plano ⬇
-                        </button>
-                        <div id="opts-${containerId}" class="multiselect-options">
-                            <label><input type="checkbox" value="all" checked onchange="toggleAll('${containerId}', this)"> <strong>(Selecionar Todos)</strong></label>
-                            ${uniquePlans.map(p => `<label><input type="checkbox" value="${p}" checked class="chk-${containerId}" onchange="triggerCallback('${containerId}')"> ${p}</label>`).join('')}
-                        </div>
-                    </div>
-                </div>
-                <div id="content-${containerId}"></div>
-            `;
-            container.appendChild(wrapper);
-            window[`cb_${containerId}`] = callback;
+            <!-- Linha 2: Excluídos (Agora separados por CC) -->
+            <div class="card" style="background:#fff0f0"><h4>CC 1000 (Exc)</h4><div class="value" style="color:#c0392b">${formatCurrency(sumEx('1000'))}</div></div>
+            <div class="card" style="background:#fff0f0"><h4>CC 2000 (Exc)</h4><div class="value" style="color:#c0392b">${formatCurrency(sumEx('2000'))}</div></div>
+            <div class="card" style="background:#fff0f0"><h4>CC 2002 (Exc)</h4><div class="value" style="color:#c0392b">${formatCurrency(sumEx('2002'))}</div></div>
+            <div class="card" style="background:#ffebee; border: 1px solid #ef9a9a;"><h4>Total Excluídos</h4><div class="value" style="color:#b71c1c">${formatCurrency(sumEx('total'))}</div></div>
+        `;
+        document.getElementById('summary-panel').innerHTML = html;
+    }
+
+    function renderCurrentTab(opData, exData) {
+        const target = document.getElementById(STATE.currentTab);
+        target.innerHTML = ''; 
+
+        if (STATE.currentTab === 'chart') {
+            renderChart(opData, 'operational', target);
+            return;
         }
-        return wrapper;
+        if (STATE.currentTab === 'excluded-chart') {
+            renderChart(exData, 'excluded', target);
+            return;
+        }
+
+        if (STATE.currentTab.startsWith('cc')) {
+            const ccFilter = STATE.currentTab.replace('cc', '');
+            const filteredOp = opData.filter(d => d.cc === ccFilter);
+            const filteredEx = exData.filter(d => d.cc === ccFilter);
+
+            renderSection(target, `Despesas Operacionais - CC ${ccFilter}`, filteredOp, `op-${ccFilter}`, 'var(--color-orange)');
+            
+            if (filteredEx.length > 0) {
+                renderSection(target, `Itens Excluídos - CC ${ccFilter}`, filteredEx, `ex-${ccFilter}`, '#c0392b');
+            } else {
+                 const div = document.createElement('div');
+                 div.innerHTML = `<div class="section-header"><div class="section-title">Itens Excluídos - CC ${ccFilter}</div></div><p style="color:#777">Nenhum item excluído para este Centro de Custo no período.</p>`;
+                 target.appendChild(div);
+            }
+            return;
+        }
+
+        if (STATE.currentTab === 'total') {
+            renderSection(target, 'Resumo Geral Operacional', opData, 'total-op', 'var(--color-dark-gray)');
+            return;
+        }
+
+        if (STATE.currentTab === 'excluded') {
+            renderSection(target, 'Todos os Itens Excluídos', exData, 'total-ex', '#c0392b');
+            return;
+        }
     }
 
-    window.toggleAll = (id, el) => {
-        document.querySelectorAll(`.chk-${id}`).forEach(chk => chk.checked = el.checked);
-        window[`cb_${id}`]();
-    };
-    window.triggerCallback = (id) => {
-        const allChk = document.querySelector(`#opts-${id} input[value="all"]`);
-        const subs = document.querySelectorAll(`.chk-${id}`);
-        allChk.checked = [...subs].every(c => c.checked);
-        window[`cb_${id}`]();
-    };
-    window.getChecked = (id) => {
-        const chks = document.querySelectorAll(`.chk-${id}:checked`);
-        return Array.from(chks).map(c => c.value);
-    };
-
-    function renderTable(data, containerId) {
-        createOrGetMultiselect(containerId, data, () => updateTableContent(data, containerId));
-        updateTableContent(data, containerId);
+    function renderSection(container, title, data, contextId, color) {
+        const total = d3.sum(data, d => d.valor);
+        
+        const wrapper = document.createElement('div');
+        wrapper.style.marginBottom = '40px';
+        
+        wrapper.innerHTML = `
+            <div class="section-header" style="border-bottom-color: ${color}">
+                <div class="section-title">${title}</div>
+                <div class="section-total" style="color: ${color}">${formatCurrency(total)}</div>
+            </div>
+        `;
+        
+        renderTableWithFilters(wrapper, data, contextId);
+        container.appendChild(wrapper);
     }
 
-    function updateTableContent(data, containerId) {
-        const selected = window.getChecked(containerId);
-        const filtered = data.filter(d => selected.includes(d.planoFinanceiro));
-        const grouped = d3.rollup(filtered, v => d3.sum(v, d => d.valor), d => d.planoFinanceiro);
-        const sorted = Array.from(grouped).sort((a,b) => b[1] - a[1]);
-        const totalTable = d3.sum(sorted, d => d[1]);
+    function renderTableWithFilters(container, data, contextId) {
+        const plans = Array.from(new Set(data.map(d => d.plano))).sort();
+        
+        const filterDiv = document.createElement('div');
+        filterDiv.className = 'multiselect-container';
+        
+        if (data.length === 0) {
+            container.innerHTML += '<p>Sem dados para exibir.</p>';
+            return;
+        }
 
-        let html = `<table><thead><tr><th>Plano Financeiro</th><th style="text-align:right">Total</th></tr></thead><tbody>`;
-        sorted.forEach(([plano, val]) => {
-            const isArtificial = plano.includes('(Injetado)');
-            const style = isArtificial ? 'background-color: #fff3e0; font-weight:bold;' : '';
-            html += `<tr style="${style}"><td>${plano}</td><td style="text-align:right">${formatCurrency(val)}</td></tr>`;
-        });
-        html += `<tr style="background:#333; color:white; font-weight:bold;"><td>TOTAL</td><td style="text-align:right">${formatCurrency(totalTable)}</td></tr></tbody></table>`;
-        document.getElementById(`content-${containerId}`).innerHTML = html;
+        filterDiv.innerHTML = `
+            <button class="multiselect-btn" onclick="toggleDropdown('${contextId}')">
+                Filtrar Planos (${plans.length}) <span>▼</span>
+            </button>
+            <div id="dropdown-${contextId}" class="multiselect-dropdown">
+                <label class="multiselect-option" style="border-bottom:1px solid #eee; font-weight:bold;">
+                    <input type="checkbox" checked onchange="toggleAllOptions(this, '${contextId}')"> Selecionar Todos
+                </label>
+                ${plans.map(p => `
+                    <label class="multiselect-option">
+                        <input type="checkbox" value="${p}" checked class="opt-${contextId}" onchange="refreshTable('${contextId}')"> ${p}
+                    </label>
+                `).join('')}
+            </div>
+        `;
+        container.appendChild(filterDiv);
+
+        const tableDiv = document.createElement('div');
+        tableDiv.id = `table-wrapper-${contextId}`;
+        container.appendChild(tableDiv);
+
+        drawTable(tableDiv, data);
+        container.dataset.jsonData = JSON.stringify(data);
     }
 
-    function renderExcludedTable(data, containerId) {
-        const container = document.getElementById(containerId);
-        let html = `<table><thead><tr><th>Data</th><th>Plano</th><th>CC</th><th>Credor</th><th style="text-align:right">Valor</th></tr></thead><tbody>`;
-        data.sort((a,b) => b.data - a.data).forEach(row => {
-            html += `<tr><td>${row.dataStr}</td><td>${row.planoFinanceiro}</td><td>${row.centroCusto}</td><td>${row.credor}</td><td style="text-align:right">${formatCurrency(row.valor)}</td></tr>`;
-        });
-        html += '</tbody></table>';
+    window.refreshTable = function(contextId) {
+        const dropdown = document.getElementById(`dropdown-${contextId}`);
+        const wrapper = dropdown.closest('.multiselect-container').parentElement; 
+        
+        const data = JSON.parse(wrapper.dataset.jsonData || '[]');
+        const checkboxes = document.querySelectorAll(`.opt-${contextId}:checked`);
+        const selectedPlans = Array.from(checkboxes).map(cb => cb.value);
+
+        const filtered = data.filter(d => selectedPlans.includes(d.plano));
+        const tableDiv = document.getElementById(`table-wrapper-${contextId}`);
+        
+        const total = d3.sum(filtered, d => d.valor);
+        const headerTotal = wrapper.querySelector('.section-total');
+        if(headerTotal) headerTotal.textContent = formatCurrency(total);
+
+        drawTable(tableDiv, filtered);
+    };
+
+    function drawTable(container, data) {
+        const grouped = d3.rollups(data, v => d3.sum(v, d => d.valor), d => d.plano)
+            .sort((a, b) => b[1] - a[1]);
+
+        const total = d3.sum(grouped, d => d[1]);
+
+        let html = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Plano Financeiro</th>
+                        <th style="text-align:right">Valor Total</th>
+                        <th style="text-align:right">%</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        if (grouped.length === 0) {
+            html += '<tr><td colspan="3" style="text-align:center">Nenhum item selecionado.</td></tr>';
+        } else {
+            grouped.forEach(([plano, valor]) => {
+                const isCalc = plano.includes('(Calculado)');
+                const pct = total !== 0 ? ((valor/total)*100).toFixed(1) : 0;
+                html += `
+                    <tr class="${isCalc ? 'row-calculated' : ''}">
+                        <td>${plano}</td>
+                        <td style="text-align:right">${formatCurrency(valor)}</td>
+                        <td style="text-align:right">${pct}%</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    <tr style="font-weight:bold; background-color:#eee;">
+                        <td>TOTAL</td>
+                        <td style="text-align:right">${formatCurrency(total)}</td>
+                        <td>100%</td>
+                    </tr>
+                </tbody>
+            </table>`;
+        }
+
         container.innerHTML = html;
     }
 
-    function renderChart(data, elementId) {
-        const container = document.getElementById(elementId);
-        container.innerHTML = ''; 
-        const grouped = d3.rollup(data, v => d3.sum(v, d => d.valor), d => d.planoFinanceiro);
-        const sorted = Array.from(grouped).sort((a,b) => b[1] - a[1]);
+    function renderChart(data, type, container) {
+        const grouped = d3.rollups(data, v => d3.sum(v, d => d.valor), d => d.plano)
+            .sort((a, b) => b[1] - a[1]);
+
+        const x = grouped.map(d => d[0]);
+        const y = grouped.map(d => d[1]);
+        const color = type === 'operational' ? '#FF7F0E' : '#c0392b';
+
+        const shortX = x.map(lbl => lbl.length > 25 ? lbl.substring(0, 25) + '...' : lbl);
 
         const trace = {
-            x: sorted.map(d => d[0]),
-            y: sorted.map(d => d[1]),
+            x: shortX,
+            y: y,
             type: 'bar',
-            marker: { color: getComputedStyle(document.body).getPropertyValue('--color-orange') || '#ff7f0e' }
+            text: y.map(val => formatCurrency(val)),
+            textposition: 'auto',
+            marker: { color: color },
+            hoverinfo: 'x+text',
+            hovertext: x.map((n, i) => `${n}<br>${formatCurrency(y[i])}`)
         };
 
         const layout = {
-            title: `Distribuição por Plano`,
+            title: type === 'operational' ? 'Despesas Operacionais por Plano' : 'Despesas Excluídas por Plano',
             margin: { b: 150 },
-            xaxis: { tickangle: -45 }
+            xaxis: { tickangle: -45 },
+            height: 500
         };
 
-        Plotly.newPlot(elementId, [trace], layout, {responsive: true});
+        Plotly.newPlot(container, [trace], layout, {responsive: true});
+    }
+
+    // ================= EVENTOS E UI =================
+
+    function setupInitialFilters() {
+        const dates = STATE.rawData.map(d => d.dataObj).filter(d => d);
+        if (dates.length > 0) {
+            const minDate = new Date(Math.min(...dates));
+            const maxDate = new Date(Math.max(...dates));
+            
+            const defaultStart = new Date(2025, 9, 1);
+            if (maxDate >= defaultStart) {
+                document.getElementById('start-date').value = '2025-10-01';
+                document.getElementById('end-date').value = '2025-12-31';
+            } else {
+                document.getElementById('start-date').value = minDate.toISOString().split('T')[0];
+                document.getElementById('end-date').value = maxDate.toISOString().split('T')[0];
+            }
+        }
     }
 
     function setupEventListeners() {
-        ['start-date-filter', 'end-date-filter', 'include-prolabore-filter'].forEach(id => {
-            document.getElementById(id).addEventListener('change', updateDashboard);
-        });
-
-        document.querySelectorAll('.tab-button[data-tab]').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-                e.target.classList.add('active');
-                currentTab = e.target.dataset.tab;
-                document.getElementById(currentTab).classList.add('active');
-                updateDashboard();
-            });
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.multiselect')) {
-                document.querySelectorAll('.multiselect-options').forEach(el => el.classList.remove('active'));
-            }
-        });
+        document.getElementById('start-date').addEventListener('change', updateDashboard);
+        document.getElementById('end-date').addEventListener('change', updateDashboard);
+        document.getElementById('check-prolabore').addEventListener('change', updateDashboard);
     }
 
-    loadData();
-});
+    window.switchTab = function(tabId) {
+        STATE.currentTab = tabId;
+        
+        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+        
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        
+        const opData = getFilteredData('operational');
+        const exData = getFilteredData('excluded');
+        renderCurrentTab(opData, exData);
+    };
+
+    window.toggleDropdown = function(id) {
+        document.getElementById(`dropdown-${id}`).classList.toggle('show');
+    };
+
+    window.toggleAllOptions = function(source, contextId) {
+        const checkboxes = document.querySelectorAll(`.opt-${contextId}`);
+        checkboxes.forEach(cb => cb.checked = source.checked);
+        refreshTable(contextId);
+    };
+
+    window.onclick = function(event) {
+        if (!event.target.matches('.multiselect-btn') && !event.target.matches('.multiselect-btn span')) {
+            document.querySelectorAll('.multiselect-dropdown').forEach(d => {
+                if (d.classList.contains('show') && !d.contains(event.target)) {
+                    d.classList.remove('show');
+                }
+            });
+        }
+    }
+
+    init();
+
 </script>
 </body>
 </html>
