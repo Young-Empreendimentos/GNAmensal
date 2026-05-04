@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Financeiro - Dados Manuais</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    
+    <style>
+        :root {
+            --color-orange: #FF7F0E;
+            --color-blue: #1f77b4;
+            --color-green: #2ca02c;
+            --color-light-gray: #f4f4f4;
+            --color-medium-gray: #e0e0e0;
+            --color-dark-gray: #333;
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--color-light-gray);
+            color: var(--color-dark-gray);
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1, h2, h3 { margin-top: 0; }
+
+        #loader {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: var(--color-orange);
+            z-index: 9999;
+        }
+
+        .page-wrapper {
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header-section {
+            background: linear-gradient(135deg, #FF7F0E 0%, #e66800 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .header-section h1 { margin: 0; font-size: 1.8em; }
+        .header-section p { margin: 5px 0 0 0; opacity: 0.9; }
+
+        .config-section {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+        }
+        .config-section label { font-weight: 600; display: block; margin-bottom: 5px; }
+        .config-section input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .config-section button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background: var(--color-orange);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .config-section button:hover { background: #e66800; }
+        .config-section .help-text { font-size: 0.85em; color: #666; margin-top: 5px; }
+
+        .filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .filter-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        input[type="date"], select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        #summary-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .card h4 { margin: 0 0 5px 0; color: #666; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px; }
+        .card .value { font-size: 1.4em; font-weight: bold; color: var(--color-dark-gray); }
+        .card.total .value { color: var(--color-orange); }
+
+        .tab-nav {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 5px;
+            border-bottom: 2px solid var(--color-medium-gray);
+        }
+        .tab-button {
+            padding: 10px 20px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+        .tab-button:hover { background-color: rgba(0,0,0,0.05); }
+        .tab-button.active {
+            color: var(--color-orange);
+            border-bottom-color: var(--color-orange);
+        }
+
+        .tab-content { background: white; padding: 20px; border-radius: 0 0 8px 8px; min-height: 400px; }
+        .tab-pane { display: none; animation: fadeIn 0.3s; }
+        .tab-pane.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .section-header {
+            margin-top: 30px;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid var(--color-medium-gray);
+            color: var(--color-dark-gray);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .section-header:first-child { margin-top: 0; }
+        .section-title { font-size: 1.2em; font-weight: bold; }
+        .section-total { font-weight: bold; font-size: 1.1em; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.95em; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: #f8f9fa; font-weight: 600; color: #444; position: sticky; top: 0; }
+        tr:hover { background-color: #fefefe; }
+        .row-calculated { background-color: #fff8e1; color: #d35400; font-style: italic; }
+
+        .multiselect-container { margin-bottom: 15px; position: relative; }
+        .multiselect-btn {
+            background: white; border: 1px solid #ccc; padding: 8px 12px;
+            border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 300px;
+        }
+        .multiselect-dropdown {
+            display: none; position: absolute; top: 100%; left: 0;
+            background: white; border: 1px solid #ccc; width: 300px;
+            max-height: 300px; overflow-y: auto; z-index: 100;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 4px;
+        }
+        .multiselect-dropdown.show { display: block; }
+        .multiselect-option { padding: 8px; display: block; cursor: pointer; }
+        .multiselect-option:hover { background-color: #f1f1f1; }
+        .multiselect-option input { margin-right: 8px; }
+
+        .data-info {
+            background: #e8f5e9;
+            border: 1px solid #a5d6a7;
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .filters { flex-direction: column; align-items: stretch; }
+            .multiselect-btn { width: 100%; }
+            .multiselect-dropdown { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader">
+        <div>Carregando Dashboard...</div>
+        <div style="font-size: 0.6em; margin-top: 10px;">Configure a URL da planilha abaixo</div>
+    </div>
+
+    <div class="page-wrapper">
+        
+        <div class="header-section">
+            <h1>Dashboard Financeiro - Dados Manuais</h1>
+            <p>Análise de Despesas por Centro de Custo (CC 1000, 2000, 2002)</p>
+        </div>
+
+        <div class="config-section">
+            <label for="sheet-url">URL da Planilha Google Sheets (CSV público):</label>
+            <input type="text" id="sheet-url" placeholder="Cole aqui a URL do CSV publicado do Google Sheets...">
+            <p class="help-text">
+                Como obter: No Google Sheets, vá em Arquivo → Compartilhar → Publicar na Web → Selecione a aba → Formato CSV → Publicar
+            </p>
+            <button onclick="loadFromURL()">Carregar Dados</button>
+            <button onclick="loadLocalCSV()" style="background: #666; margin-left: 10px;">Usar CSV Local</button>
+        </div>
+
+        <div id="data-info" class="data-info" style="display:none;">
+            <strong>Dados carregados:</strong> <span id="records-count">0</span> registros | 
+            <strong>Período:</strong> <span id="period-range">-</span>
+        </div>
+
+        <div class="filters">
+            <div class="filter-item">
+                <label>Período:</label>
+                <input type="date" id="start-date">
+                <span>até</span>
+                <input type="date" id="end-date">
+            </div>
+            <div class="filter-item" style="margin-left: auto;">
+                <input type="checkbox" id="check-prolabore">
+                <label for="check-prolabore">Incluir Pró-labore nos Operacionais</label>
+            </div>
+        </div>
+
+        <div id="summary-panel"></div>
+
+        <div class="tab-nav">
+            <button class="tab-button active" onclick="switchTab('cc1000')">CC 1000</button>
+            <button class="tab-button" onclick="switchTab('cc2000')">CC 2000</button>
+            <button class="tab-button" onclick="switchTab('cc2002')">CC 2002</button>
+            <button class="tab-button" onclick="switchTab('total')">Total Geral</button>
+            <button class="tab-button" onclick="switchTab('chart')">Gráfico Operacional</button>
+            <button class="tab-button" onclick="switchTab('excluded')">Todos Excluídos</button>
+            <button class="tab-button" onclick="switchTab('excluded-chart')">Gráfico Excluídos</button>
+        </div>
+
+        <div class="tab-content">
+            <div id="cc1000" class="tab-pane active"></div>
+            <div id="cc2000" class="tab-pane"></div>
+            <div id="cc2002" class="tab-pane"></div>
+            <div id="total" class="tab-pane"></div>
+            <div id="chart" class="tab-pane"></div>
+            <div id="excluded" class="tab-pane"></div>
+            <div id="excluded-chart" class="tab-pane"></div>
+        </div>
+
+    </div>
+
+<script>
+    const EXCLUSION_RULES = {
+        exact: [
+            'pis, cofins e csll (sobre faturamento/receita)', 
+            'repasses de gestao de carteira de permuta fisica', 
+            'cofins (sobre faturamento/receita)', 
+            'pis (sobre faturamento/receita)',
+            'distribuicao de dividendos', 
+            'recolhimento de pis, cofins e csll',
+            'recolhimento de pis cofins e csll',
+            'recolhimento retencao ir',
+            'pis cofins e csll (sobre faturamento/receita)'
+        ],
+        contains: ['pro-labore', 'pro labore', 'pró-labore', 'pró labore', 'dividendos']
+    };
+
+    const BLACKLIST_TERMS = ['saldo anterior', 'saldo final', 'total geral', 'total do periodo', 'resumo financeiro', 'subtotal', 'transportado', 'a transportar'];
+
+    let STATE = {
+        rawData: [],           
+        operationalData: [],   
+        excludedData: [],      
+        currentTab: 'cc1000',
+        filters: {
+            start: null,
+            end: null,
+            includeProLabore: false 
+        }
+    };
+
+    function normalizeText(text) {
+        if (!text) return '';
+        return text.toString()
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .trim();
+    }
+
+    function parseCurrency(value) {
+        if (typeof value === 'number') return value;
+        if (!value) return 0;
+        let str = String(value).trim();
+        str = str.replace(/[R$]/gi, '').trim();
+
+        let sign = 1;
+        if (str.includes('(') && str.includes(')')) {
+            sign = -1;
+            str = str.replace(/[()]/g, '');
+        } else if (str.startsWith('-')) {
+            sign = -1;
+        }
+
+        const lastCommaIndex = str.lastIndexOf(',');
+        const lastDotIndex = str.lastIndexOf('.');
+
+        if (lastCommaIndex > lastDotIndex) {
+            str = str.replace(/\./g, '').replace(',', '.');
+        } else {
+            str = str.replace(/,/g, '');
+        }
+
+        const num = parseFloat(str);
+        return isNaN(num) ? 0 : num * sign;
+    }
+
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    }
+
+    function parseDate(dateStr) {
+        if (!dateStr) return null;
+        dateStr = dateStr.trim();
+        if (dateStr.includes('/')) {
+            const parts = dateStr.split('/');
+            if (parts.length === 3) return new Date(parts[2], parts[1] - 1, parts[0]);
+        }
+        if (dateStr.includes('-')) {
+            const parts = dateStr.split('-');
+            if (parts.length === 3) return new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+        return null;
+    }
+
+    function loadLocalCSV() {
+        fetch('dados_jan_mar_2026.csv')
+            .then(response => response.text())
+            .then(csvText => processCSV(csvText))
+            .catch(error => {
+                alert('Erro ao carregar CSV local: ' + error.message);
+            });
+    }
+
+    function loadFromURL() {
+        const url = document.getElementById('sheet-url').value.trim();
+        if (!url) {
+            alert('Por favor, insira a URL da planilha.');
+            return;
+        }
+        
+        document.getElementById('loader').style.display = 'flex';
+        
+        fetch(url + '&t=' + Date.now())
+            .then(response => response.text())
+            .then(csvText => processCSV(csvText))
+            .catch(error => {
+                document.getElementById('loader').style.display = 'none';
+                alert('Erro ao carregar dados: ' + error.message);
+            });
+    }
+
+    function processCSV(csvText) {
+        const rawData = d3.csvParse(csvText, (d) => {
+            const keys = Object.keys(d);
+            const normalized = {};
+            keys.forEach(k => normalized[k.trim().toLowerCase()] = d[k]);
+            
+            const valor = parseCurrency(normalized['valor']);
+            if (valor === 0) return null;
+
+            const plano = (normalized['plano financeiro'] || normalized['plano'] || '').trim();
+            const credor = (normalized['credor'] || '').trim();
+            const cc = (normalized['centro de custo'] || normalized['centro custo'] || '').trim();
+
+            const planoNorm = normalizeText(plano);
+            const credorNorm = normalizeText(credor);
+            
+            if (BLACKLIST_TERMS.some(term => planoNorm.includes(term) || credorNorm.includes(term))) return null;
+            if (planoNorm === 'total' || planoNorm.startsWith('total ')) return null;
+
+            return {
+                dataOriginal: normalized['data'],
+                dataObj: parseDate(normalized['data']),
+                plano: plano,
+                cc: cc,
+                credor: credor,
+                valor: valor,
+                origem: 'csv'
+            };
+        });
+
+        STATE.rawData = rawData.filter(d => d !== null && ['1000', '2000', '2002'].includes(d.cc));
+        
+        classifyData();
+        setupInitialFilters();
+        setupEventListeners();
+        updateDashboard();
+        updateDataInfo();
+        
+        document.getElementById('loader').style.display = 'none';
+        document.querySelector('.page-wrapper').style.display = 'flex';
+    }
+
+    function updateDataInfo() {
+        const dates = STATE.rawData.map(d => d.dataObj).filter(d => d);
+        if (dates.length > 0) {
+            const minDate = new Date(Math.min(...dates));
+            const maxDate = new Date(Math.max(...dates));
+            const format = d => d.toLocaleDateString('pt-BR');
+            document.getElementById('period-range').textContent = `${format(minDate)} a ${format(maxDate)}`;
+        }
+        document.getElementById('records-count').textContent = STATE.rawData.length;
+        document.getElementById('data-info').style.display = 'block';
+    }
+
+    function classifyData() {
+        STATE.operationalData = [];
+        STATE.excludedData = [];
+
+        STATE.rawData.forEach(item => {
+            const planoNormalized = normalizeText(item.plano);
+            let isExcluded = false;
+
+            if (EXCLUSION_RULES.exact.some(term => planoNormalized.includes(term))) isExcluded = true;
+            
+            if (!isExcluded) {
+                for (const term of EXCLUSION_RULES.contains) {
+                    if (planoNormalized.includes(normalizeText(term))) {
+                        isExcluded = true;
+                        break;
+                    }
+                }
+            }
+
+            if (isExcluded) {
+                STATE.excludedData.push(item);
+            } else {
+                STATE.operationalData.push(item);
+            }
+        });
+    }
+
+    function getFilteredData(type) {
+        let baseData = (type === 'excluded') ? [...STATE.excludedData] : [...STATE.operationalData];
+        
+        if (STATE.filters.start && STATE.filters.end) {
+            baseData = baseData.filter(d => 
+                d.dataObj && d.dataObj >= STATE.filters.start && d.dataObj <= STATE.filters.end
+            );
+        }
+
+        if (type === 'operational' && STATE.filters.includeProLabore) {
+            const proLaboreData = STATE.excludedData.filter(d => {
+                const planoNorm = normalizeText(d.plano);
+                return planoNorm.includes('pro-labore') || planoNorm.includes('pro labore') || 
+                       planoNorm.includes('pró-labore') || planoNorm.includes('pró labore');
+            }).filter(d => {
+                if (!STATE.filters.start || !STATE.filters.end) return true;
+                return d.dataObj && d.dataObj >= STATE.filters.start && d.dataObj <= STATE.filters.end;
+            });
+            
+            baseData = [...baseData, ...proLaboreData];
+        }
+
+        return baseData;
+    }
+
+    function updateDashboard() {
+        const startVal = document.getElementById('start-date').value;
+        const endVal = document.getElementById('end-date').value;
+        STATE.filters.start = startVal ? new Date(startVal + 'T00:00:00') : null;
+        STATE.filters.end = endVal ? new Date(endVal + 'T23:59:59') : null;
+        STATE.filters.includeProLabore = document.getElementById('check-prolabore').checked;
+
+        const opData = getFilteredData('operational');
+        const exData = getFilteredData('excluded');
+
+        renderSummaryCards(opData, exData);
+        renderCurrentTab(opData, exData);
+    }
+
+    function renderSummaryCards(opData, exData) {
+        const sumOp = (cc) => d3.sum(opData.filter(d => cc === 'total' || d.cc === cc), d => d.valor);
+        const sumEx = (cc) => d3.sum(exData.filter(d => cc === 'total' || d.cc === cc), d => d.valor);
+        
+        const html = `
+            <div class="card"><h4>CC 1000 (Op)</h4><div class="value">${formatCurrency(sumOp('1000'))}</div></div>
+            <div class="card"><h4>CC 2000 (Op)</h4><div class="value">${formatCurrency(sumOp('2000'))}</div></div>
+            <div class="card"><h4>CC 2002 (Op)</h4><div class="value">${formatCurrency(sumOp('2002'))}</div></div>
+            <div class="card total"><h4>Total Operacional</h4><div class="value">${formatCurrency(sumOp('total'))}</div></div>
+            
+            <div class="card" style="background:#fff0f0"><h4>CC 1000 (Exc)</h4><div class="value" style="color:#c0392b">${formatCurrency(sumEx('1000'))}</div></div>
+            <div class="card" style="background:#fff0f0"><h4>CC 2000 (Exc)</h4><div class="value" style="color:#c0392b">${formatCurrency(sumEx('2000'))}</div></div>
+            <div class="card" style="background:#fff0f0"><h4>CC 2002 (Exc)</h4><div class="value" style="color:#c0392b">${formatCurrency(sumEx('2002'))}</div></div>
+            <div class="card" style="background:#ffebee; border: 1px solid #ef9a9a;"><h4>Total Excluídos</h4><div class="value" style="color:#b71c1c">${formatCurrency(sumEx('total'))}</div></div>
+        `;
+        document.getElementById('summary-panel').innerHTML = html;
+    }
+
+    function renderCurrentTab(opData, exData) {
+        const target = document.getElementById(STATE.currentTab);
+        target.innerHTML = ''; 
+
+        if (STATE.currentTab === 'chart') {
+            renderChart(opData, 'operational', target);
+            return;
+        }
+        if (STATE.currentTab === 'excluded-chart') {
+            renderChart(exData, 'excluded', target);
+            return;
+        }
+
+        if (STATE.currentTab.startsWith('cc')) {
+            const ccFilter = STATE.currentTab.replace('cc', '');
+            const filteredOp = opData.filter(d => d.cc === ccFilter);
+            const filteredEx = exData.filter(d => d.cc === ccFilter);
+
+            renderSection(target, `Despesas Operacionais - CC ${ccFilter}`, filteredOp, `op-${ccFilter}`, 'var(--color-orange)');
+            
+            if (filteredEx.length > 0) {
+                renderSection(target, `Itens Excluídos - CC ${ccFilter}`, filteredEx, `ex-${ccFilter}`, '#c0392b');
+            } else {
+                 const div = document.createElement('div');
+                 div.innerHTML = `<div class="section-header"><div class="section-title">Itens Excluídos - CC ${ccFilter}</div></div><p style="color:#777">Nenhum item excluído para este Centro de Custo no período.</p>`;
+                 target.appendChild(div);
+            }
+            return;
+        }
+
+        if (STATE.currentTab === 'total') {
+            renderSection(target, 'Resumo Geral Operacional', opData, 'total-op', 'var(--color-dark-gray)');
+            return;
+        }
+
+        if (STATE.currentTab === 'excluded') {
+            renderSection(target, 'Todos os Itens Excluídos', exData, 'total-ex', '#c0392b');
+            return;
+        }
+    }
+
+    function renderSection(container, title, data, contextId, color) {
+        const total = d3.sum(data, d => d.valor);
+        
+        const wrapper = document.createElement('div');
+        wrapper.style.marginBottom = '40px';
+        
+        wrapper.innerHTML = `
+            <div class="section-header" style="border-bottom-color: ${color}">
+                <div class="section-title">${title}</div>
+                <div class="section-total" style="color: ${color}">${formatCurrency(total)}</div>
+            </div>
+        `;
+        
+        renderTableWithFilters(wrapper, data, contextId);
+        container.appendChild(wrapper);
+    }
+
+    function renderTableWithFilters(container, data, contextId) {
+        const plans = Array.from(new Set(data.map(d => d.plano))).sort();
+        
+        const filterDiv = document.createElement('div');
+        filterDiv.className = 'multiselect-container';
+        
+        if (data.length === 0) {
+            container.innerHTML += '<p>Sem dados para exibir.</p>';
+            return;
+        }
+
+        filterDiv.innerHTML = `
+            <button class="multiselect-btn" onclick="toggleDropdown('${contextId}')">
+                Filtrar Planos (${plans.length}) <span>▼</span>
+            </button>
+            <div id="dropdown-${contextId}" class="multiselect-dropdown">
+                <label class="multiselect-option" style="border-bottom:1px solid #eee; font-weight:bold;">
+                    <input type="checkbox" checked onchange="toggleAllOptions(this, '${contextId}')"> Selecionar Todos
+                </label>
+                ${plans.map(p => `
+                    <label class="multiselect-option">
+                        <input type="checkbox" value="${p}" checked class="opt-${contextId}" onchange="refreshTable('${contextId}')"> ${p}
+                    </label>
+                `).join('')}
+            </div>
+        `;
+        container.appendChild(filterDiv);
+
+        const tableDiv = document.createElement('div');
+        tableDiv.id = `table-wrapper-${contextId}`;
+        container.appendChild(tableDiv);
+
+        drawTable(tableDiv, data);
+        container.dataset.jsonData = JSON.stringify(data);
+    }
+
+    window.refreshTable = function(contextId) {
+        const dropdown = document.getElementById(`dropdown-${contextId}`);
+        const wrapper = dropdown.closest('.multiselect-container').parentElement; 
+        
+        const data = JSON.parse(wrapper.dataset.jsonData || '[]');
+        const checkboxes = document.querySelectorAll(`.opt-${contextId}:checked`);
+        const selectedPlans = Array.from(checkboxes).map(cb => cb.value);
+
+        const filtered = data.filter(d => selectedPlans.includes(d.plano));
+        const tableDiv = document.getElementById(`table-wrapper-${contextId}`);
+        
+        const total = d3.sum(filtered, d => d.valor);
+        const headerTotal = wrapper.querySelector('.section-total');
+        if(headerTotal) headerTotal.textContent = formatCurrency(total);
+
+        drawTable(tableDiv, filtered);
+    };
+
+    function drawTable(container, data) {
+        const grouped = d3.rollups(data, v => d3.sum(v, d => d.valor), d => d.plano)
+            .sort((a, b) => b[1] - a[1]);
+
+        const total = d3.sum(grouped, d => d[1]);
+
+        let html = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Plano Financeiro</th>
+                        <th style="text-align:right">Valor Total</th>
+                        <th style="text-align:right">%</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        if (grouped.length === 0) {
+            html += '<tr><td colspan="3" style="text-align:center">Nenhum item selecionado.</td></tr>';
+        } else {
+            grouped.forEach(([plano, valor]) => {
+                const isCalc = plano.includes('(Calculado)');
+                const pct = total !== 0 ? ((valor/total)*100).toFixed(1) : 0;
+                html += `
+                    <tr class="${isCalc ? 'row-calculated' : ''}">
+                        <td>${plano}</td>
+                        <td style="text-align:right">${formatCurrency(valor)}</td>
+                        <td style="text-align:right">${pct}%</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    <tr style="font-weight:bold; background-color:#eee;">
+                        <td>TOTAL</td>
+                        <td style="text-align:right">${formatCurrency(total)}</td>
+                        <td>100%</td>
+                    </tr>
+                </tbody>
+            </table>`;
+        }
+
+        container.innerHTML = html;
+    }
+
+    function renderChart(data, type, container) {
+        const grouped = d3.rollups(data, v => d3.sum(v, d => d.valor), d => d.plano)
+            .sort((a, b) => b[1] - a[1]);
+
+        const x = grouped.map(d => d[0]);
+        const y = grouped.map(d => d[1]);
+        const color = type === 'operational' ? '#FF7F0E' : '#c0392b';
+
+        const shortX = x.map(lbl => lbl.length > 25 ? lbl.substring(0, 25) + '...' : lbl);
+
+        const trace = {
+            x: shortX,
+            y: y,
+            type: 'bar',
+            text: y.map(val => formatCurrency(val)),
+            textposition: 'auto',
+            marker: { color: color },
+            hoverinfo: 'x+text',
+            hovertext: x.map((n, i) => `${n}<br>${formatCurrency(y[i])}`)
+        };
+
+        const layout = {
+            title: type === 'operational' ? 'Despesas Operacionais por Plano' : 'Despesas Excluídas por Plano',
+            margin: { b: 150 },
+            xaxis: { tickangle: -45 },
+            height: 500
+        };
+
+        Plotly.newPlot(container, [trace], layout, {responsive: true});
+    }
+
+    function setupInitialFilters() {
+        const dates = STATE.rawData.map(d => d.dataObj).filter(d => d);
+        if (dates.length > 0) {
+            const minDate = new Date(Math.min(...dates));
+            const maxDate = new Date(Math.max(...dates));
+            document.getElementById('start-date').value = minDate.toISOString().split('T')[0];
+            document.getElementById('end-date').value = maxDate.toISOString().split('T')[0];
+        }
+    }
+
+    function setupEventListeners() {
+        document.getElementById('start-date').addEventListener('change', updateDashboard);
+        document.getElementById('end-date').addEventListener('change', updateDashboard);
+        document.getElementById('check-prolabore').addEventListener('change', updateDashboard);
+    }
+
+    window.switchTab = function(tabId) {
+        STATE.currentTab = tabId;
+        
+        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+        
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        
+        const opData = getFilteredData('operational');
+        const exData = getFilteredData('excluded');
+        renderCurrentTab(opData, exData);
+    };
+
+    window.toggleDropdown = function(id) {
+        document.getElementById(`dropdown-${id}`).classList.toggle('show');
+    };
+
+    window.toggleAllOptions = function(source, contextId) {
+        const checkboxes = document.querySelectorAll(`.opt-${contextId}`);
+        checkboxes.forEach(cb => cb.checked = source.checked);
+        refreshTable(contextId);
+    };
+
+    window.onclick = function(event) {
+        if (!event.target.matches('.multiselect-btn') && !event.target.matches('.multiselect-btn span')) {
+            document.querySelectorAll('.multiselect-dropdown').forEach(d => {
+                if (d.classList.contains('show') && !d.contains(event.target)) {
+                    d.classList.remove('show');
+                }
+            });
+        }
+    }
+
+    document.getElementById('loader').style.display = 'none';
+    document.querySelector('.page-wrapper').style.display = 'flex';
+
+</script>
+</body>
+</html>
