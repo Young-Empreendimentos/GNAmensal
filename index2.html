@@ -223,23 +223,15 @@
     <div class="page-wrapper">
         
         <div class="header-section">
-            <h1>Dashboard Financeiro - Dados Manuais</h1>
+            <h1>GNA Mensal - Dashboard Financeiro</h1>
             <p>Análise de Despesas por Centro de Custo (CC 1000, 2000, 2002)</p>
         </div>
 
-        <div class="config-section" id="config-section" style="display: none;">
-            <label for="sheet-url">URL da Planilha Google Sheets (CSV público):</label>
-            <input type="text" id="sheet-url" placeholder="Cole aqui a URL do CSV publicado do Google Sheets...">
-            <p class="help-text">
-                Como obter: No Google Sheets, vá em Arquivo → Compartilhar → Publicar na Web → Selecione a aba → Formato CSV → Publicar
-            </p>
-            <button onclick="loadFromURL()">Carregar Dados Externos</button>
-        </div>
 
         <div id="data-info" class="data-info" style="display:none;">
             <strong>Dados carregados:</strong> <span id="records-count">0</span> registros | 
             <strong>Período:</strong> <span id="period-range">-</span> |
-            <a href="#" onclick="document.getElementById('config-section').style.display='block'; return false;" style="color: #1976d2;">Carregar outra fonte</a>
+            <a href="#" onclick="loadLocalCSV(); return false;" style="color: #1976d2;">Atualizar dados</a>
         </div>
 
         <div class="filters">
@@ -363,12 +355,16 @@
         return null;
     }
 
+    const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTVh1oeiy7DU-HlcFJR8aga2V77bJ6oSf_8cNWaaX_3IFIIpuva6BUeiZcd0JXFFXzGyUjbmMR5WYrT/pub?gid=1112627830&single=true&output=csv';
+
     function loadLocalCSV() {
-        fetch('dados_jan_mar_2026.csv')
+        document.getElementById('loader').style.display = 'flex';
+        fetch(SHEETS_URL + '&t=' + Date.now())
             .then(response => response.text())
             .then(csvText => processCSV(csvText))
             .catch(error => {
-                alert('Erro ao carregar CSV local: ' + error.message);
+                document.getElementById('loader').style.display = 'none';
+                alert('Erro ao carregar dados do Google Sheets: ' + error.message);
             });
     }
 
