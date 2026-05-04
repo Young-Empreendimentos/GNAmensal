@@ -3,275 +3,510 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Financeiro - Dados Manuais</title>
+    <title>GNA Mensal - Dashboard Financeiro</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
         :root {
-            --color-orange: #FF7F0E;
-            --color-blue: #1f77b4;
-            --color-green: #2ca02c;
-            --color-light-gray: #f4f4f4;
-            --color-medium-gray: #e0e0e0;
-            --color-dark-gray: #333;
-            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #818cf8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
         }
 
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            font-family: var(--font-family);
-            background-color: var(--color-light-gray);
-            color: var(--color-dark-gray);
-            margin: 0;
-            padding: 20px;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-200) 100%);
+            color: var(--gray-800);
+            min-height: 100vh;
+            line-height: 1.5;
         }
-
-        h1, h2, h3 { margin-top: 0; }
 
         #loader {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255,255,255,0.95);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            font-size: 1.5em;
-            font-weight: bold;
-            color: var(--color-orange);
             z-index: 9999;
+        }
+        .loader-spinner {
+            width: 56px;
+            height: 56px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loader-text {
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-top: 20px;
+            letter-spacing: 0.5px;
         }
 
         .page-wrapper {
             display: none;
             flex-direction: column;
-            gap: 20px;
-            max-width: 1200px;
+            gap: 24px;
+            max-width: 1400px;
             margin: 0 auto;
+            padding: 24px;
         }
 
-        .header-section {
-            background: linear-gradient(135deg, #FF7F0E 0%, #e66800 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            margin-bottom: 10px;
-        }
-        .header-section h1 { margin: 0; font-size: 1.8em; }
-        .header-section p { margin: 5px 0 0 0; opacity: 0.9; }
-
-        .config-section {
+        .header {
             background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 10px;
-        }
-        .config-section label { font-weight: 600; display: block; margin-bottom: 5px; }
-        .config-section input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-        .config-section button {
-            margin-top: 10px;
-            padding: 10px 20px;
-            background: var(--color-orange);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-        .config-section button:hover { background: #e66800; }
-        .config-section .help-text { font-size: 0.85em; color: #666; margin-top: 5px; }
-
-        .filters {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            align-items: center;
-            background-color: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .filter-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        input[type="date"], select {
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-
-        #summary-panel {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-        .card {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-        .card h4 { margin: 0 0 5px 0; color: #666; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px; }
-        .card .value { font-size: 1.4em; font-weight: bold; color: var(--color-dark-gray); }
-        .card.total .value { color: var(--color-orange); }
-
-        .tab-nav {
-            display: flex;
-            gap: 10px;
-            overflow-x: auto;
-            padding-bottom: 5px;
-            border-bottom: 2px solid var(--color-medium-gray);
-        }
-        .tab-button {
-            padding: 10px 20px;
-            border: none;
-            background: none;
-            cursor: pointer;
-            font-weight: 600;
-            color: #666;
-            border-bottom: 3px solid transparent;
-            transition: all 0.3s;
-            white-space: nowrap;
-        }
-        .tab-button:hover { background-color: rgba(0,0,0,0.05); }
-        .tab-button.active {
-            color: var(--color-orange);
-            border-bottom-color: var(--color-orange);
-        }
-
-        .tab-content { background: white; padding: 20px; border-radius: 0 0 8px 8px; min-height: 400px; }
-        .tab-pane { display: none; animation: fadeIn 0.3s; }
-        .tab-pane.active { display: block; }
-
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        .section-header {
-            margin-top: 30px;
-            margin-bottom: 15px;
-            padding-bottom: 5px;
-            border-bottom: 2px solid var(--color-medium-gray);
-            color: var(--color-dark-gray);
+            border-radius: 16px;
+            padding: 24px 32px;
+            box-shadow: var(--shadow-md);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
         }
-        .section-header:first-child { margin-top: 0; }
-        .section-title { font-size: 1.2em; font-weight: bold; }
-        .section-total { font-weight: bold; font-size: 1.1em; }
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .header-logo {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gray-900);
+        }
+        .header p {
+            color: var(--gray-500);
+            font-size: 0.875rem;
+            margin-top: 2px;
+        }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+        .btn-outline {
+            background: white;
+            color: var(--gray-700);
+            border: 1px solid var(--gray-300);
+        }
+        .btn-outline:hover {
+            background: var(--gray-50);
+            border-color: var(--gray-400);
+        }
+        .data-badge {
+            background: var(--success);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .data-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
 
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.95em; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
-        th { background-color: #f8f9fa; font-weight: 600; color: #444; position: sticky; top: 0; }
-        tr:hover { background-color: #fefefe; }
-        .row-calculated { background-color: #fff8e1; color: #d35400; font-style: italic; }
+        .filters-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 16px 24px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+        }
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .filter-group label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--gray-600);
+        }
+        input[type="date"] {
+            padding: 10px 14px;
+            border: 1px solid var(--gray-300);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-family: inherit;
+            color: var(--gray-700);
+            background: var(--gray-50);
+            transition: all 0.2s;
+        }
+        input[type="date"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .checkbox-wrapper input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+        .checkbox-wrapper span {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+        }
 
-        .multiselect-container { margin-bottom: 15px; position: relative; }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        .summary-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px 24px;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .summary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        .summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--primary);
+        }
+        .summary-card.danger::before { background: var(--danger); }
+        .summary-card.warning::before { background: var(--warning); }
+        .summary-card.success::before { background: var(--success); }
+        .summary-card-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        .summary-card-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gray-900);
+        }
+        .summary-card.danger .summary-card-value { color: var(--danger); }
+        .summary-card.highlight {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        }
+        .summary-card.highlight::before { display: none; }
+        .summary-card.highlight .summary-card-label { color: rgba(255,255,255,0.8); }
+        .summary-card.highlight .summary-card-value { color: white; }
+
+        .tabs-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+        }
+        .tabs-nav {
+            display: flex;
+            gap: 4px;
+            padding: 8px;
+            background: var(--gray-100);
+            overflow-x: auto;
+        }
+        .tab-btn {
+            padding: 12px 20px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--gray-600);
+            border-radius: 8px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .tab-btn:hover { background: white; color: var(--gray-800); }
+        .tab-btn.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: var(--shadow-sm);
+        }
+        .tabs-content {
+            padding: 24px;
+            min-height: 400px;
+        }
+        .tab-pane { display: none; animation: fadeIn 0.3s ease; }
+        .tab-pane.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--gray-200);
+        }
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--gray-800);
+        }
+        .section-total {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .section-total.danger { color: var(--danger); }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        th {
+            text-align: left;
+            padding: 14px 16px;
+            background: var(--gray-50);
+            font-weight: 600;
+            color: var(--gray-600);
+            border-bottom: 2px solid var(--gray-200);
+            position: sticky;
+            top: 0;
+        }
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--gray-100);
+            color: var(--gray-700);
+        }
+        tr:hover { background: var(--gray-50); }
+        tr.total-row {
+            background: var(--gray-100);
+            font-weight: 600;
+        }
+        tr.total-row td { color: var(--gray-900); }
+
+        .multiselect-container { margin-bottom: 20px; position: relative; }
         .multiselect-btn {
-            background: white; border: 1px solid #ccc; padding: 8px 12px;
-            border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 280px;
+            padding: 10px 14px;
+            background: white;
+            border: 1px solid var(--gray-300);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            color: var(--gray-700);
+            transition: all 0.2s;
         }
+        .multiselect-btn:hover { border-color: var(--primary); }
         .multiselect-dropdown {
-            display: none; position: absolute; top: 100%; left: 0;
-            background: white; border: 1px solid #ccc; width: 300px;
-            max-height: 300px; overflow-y: auto; z-index: 100;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 4px;
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 320px;
+            max-height: 300px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            z-index: 100;
+            margin-top: 4px;
         }
         .multiselect-dropdown.show { display: block; }
-        .multiselect-option { padding: 8px; display: block; cursor: pointer; }
-        .multiselect-option:hover { background-color: #f1f1f1; }
-        .multiselect-option input { margin-right: 8px; }
+        .multiselect-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: background 0.15s;
+        }
+        .multiselect-option:hover { background: var(--gray-50); }
+        .multiselect-option.header {
+            border-bottom: 1px solid var(--gray-200);
+            font-weight: 600;
+            background: var(--gray-50);
+        }
 
-        .data-info {
-            background: #e8f5e9;
-            border: 1px solid #a5d6a7;
-            padding: 10px 15px;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            font-size: 0.9em;
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--gray-500);
+        }
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
         }
 
         @media (max-width: 768px) {
-            .filters { flex-direction: column; align-items: stretch; }
-            .multiselect-btn { width: 100%; }
-            .multiselect-dropdown { width: 100%; }
+            .page-wrapper { padding: 16px; gap: 16px; }
+            .header { padding: 16px 20px; flex-direction: column; align-items: flex-start; }
+            .filters-bar { flex-direction: column; align-items: stretch; }
+            .multiselect-btn, .multiselect-dropdown { width: 100%; }
+            .summary-grid { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
 </head>
 <body>
 
     <div id="loader">
-        <div>Carregando Dashboard...</div>
-        <div style="font-size: 0.6em; margin-top: 10px;">Configure a URL da planilha abaixo</div>
+        <div class="loader-spinner"></div>
+        <div class="loader-text">Carregando dados...</div>
     </div>
 
     <div class="page-wrapper">
         
-        <div class="header-section">
-            <h1>GNA Mensal - Dashboard Financeiro</h1>
-            <p>Análise de Despesas por Centro de Custo (CC 1000, 2000, 2002)</p>
-        </div>
+        <header class="header">
+            <div class="header-title">
+                <div class="header-logo">GN</div>
+                <div>
+                    <h1>GNA Mensal</h1>
+                    <p>Dashboard de Análise Financeira</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="data-badge" id="data-badge">
+                    <span id="records-count">0</span> registros
+                </div>
+                <button class="btn btn-outline" onclick="loadData()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                    </svg>
+                    Atualizar
+                </button>
+            </div>
+        </header>
 
-
-        <div id="data-info" class="data-info" style="display:none;">
-            <strong>Dados carregados:</strong> <span id="records-count">0</span> registros | 
-            <strong>Período:</strong> <span id="period-range">-</span> |
-            <a href="#" onclick="loadLocalCSV(); return false;" style="color: #1976d2;">Atualizar dados</a>
-        </div>
-
-        <div class="filters">
-            <div class="filter-item">
-                <label>Período:</label>
+        <div class="filters-bar">
+            <div class="filter-group">
+                <label>De:</label>
                 <input type="date" id="start-date">
-                <span>até</span>
+            </div>
+            <div class="filter-group">
+                <label>Até:</label>
                 <input type="date" id="end-date">
             </div>
-            <div class="filter-item" style="margin-left: auto;">
+            <label class="checkbox-wrapper" style="margin-left: auto;">
                 <input type="checkbox" id="check-prolabore">
-                <label for="check-prolabore">Incluir Pró-labore nos Operacionais</label>
+                <span>Incluir Pró-labore nos Operacionais</span>
+            </label>
+        </div>
+
+        <div class="summary-grid" id="summary-panel"></div>
+
+        <div class="tabs-container">
+            <nav class="tabs-nav">
+                <button class="tab-btn active" onclick="switchTab('cc1000')">CC 1000</button>
+                <button class="tab-btn" onclick="switchTab('cc2000')">CC 2000</button>
+                <button class="tab-btn" onclick="switchTab('cc2002')">CC 2002</button>
+                <button class="tab-btn" onclick="switchTab('total')">Total Geral</button>
+                <button class="tab-btn" onclick="switchTab('chart')">Gráfico Operacional</button>
+                <button class="tab-btn" onclick="switchTab('excluded')">Todos Excluídos</button>
+                <button class="tab-btn" onclick="switchTab('excluded-chart')">Gráfico Excluídos</button>
+            </nav>
+            <div class="tabs-content">
+                <div id="cc1000" class="tab-pane active"></div>
+                <div id="cc2000" class="tab-pane"></div>
+                <div id="cc2002" class="tab-pane"></div>
+                <div id="total" class="tab-pane"></div>
+                <div id="chart" class="tab-pane"></div>
+                <div id="excluded" class="tab-pane"></div>
+                <div id="excluded-chart" class="tab-pane"></div>
             </div>
-        </div>
-
-        <div id="summary-panel"></div>
-
-        <div class="tab-nav">
-            <button class="tab-button active" onclick="switchTab('cc1000')">CC 1000</button>
-            <button class="tab-button" onclick="switchTab('cc2000')">CC 2000</button>
-            <button class="tab-button" onclick="switchTab('cc2002')">CC 2002</button>
-            <button class="tab-button" onclick="switchTab('total')">Total Geral</button>
-            <button class="tab-button" onclick="switchTab('chart')">Gráfico Operacional</button>
-            <button class="tab-button" onclick="switchTab('excluded')">Todos Excluídos</button>
-            <button class="tab-button" onclick="switchTab('excluded-chart')">Gráfico Excluídos</button>
-        </div>
-
-        <div class="tab-content">
-            <div id="cc1000" class="tab-pane active"></div>
-            <div id="cc2000" class="tab-pane"></div>
-            <div id="cc2002" class="tab-pane"></div>
-            <div id="total" class="tab-pane"></div>
-            <div id="chart" class="tab-pane"></div>
-            <div id="excluded" class="tab-pane"></div>
-            <div id="excluded-chart" class="tab-pane"></div>
         </div>
 
     </div>
 
 <script>
+    const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTVh1oeiy7DU-HlcFJR8aga2V77bJ6oSf_8cNWaaX_3IFIIpuva6BUeiZcd0JXFFXzGyUjbmMR5WYrT/pub?gid=1112627830&single=true&output=csv';
+
     const EXCLUSION_RULES = {
         exact: [
             'pis, cofins e csll (sobre faturamento/receita)', 
@@ -294,45 +529,25 @@
         operationalData: [],   
         excludedData: [],      
         currentTab: 'cc1000',
-        filters: {
-            start: null,
-            end: null,
-            includeProLabore: false 
-        }
+        filters: { start: null, end: null, includeProLabore: false }
     };
 
     function normalizeText(text) {
         if (!text) return '';
-        return text.toString()
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .trim();
+        return text.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     }
 
     function parseCurrency(value) {
         if (typeof value === 'number') return value;
         if (!value) return 0;
-        let str = String(value).trim();
-        str = str.replace(/[R$]/gi, '').trim();
-
+        let str = String(value).trim().replace(/[R$]/gi, '').trim();
         let sign = 1;
-        if (str.includes('(') && str.includes(')')) {
-            sign = -1;
-            str = str.replace(/[()]/g, '');
-        } else if (str.startsWith('-')) {
-            sign = -1;
-        }
-
+        if (str.includes('(') && str.includes(')')) { sign = -1; str = str.replace(/[()]/g, ''); }
+        else if (str.startsWith('-')) { sign = -1; }
         const lastCommaIndex = str.lastIndexOf(',');
         const lastDotIndex = str.lastIndexOf('.');
-
-        if (lastCommaIndex > lastDotIndex) {
-            str = str.replace(/\./g, '').replace(',', '.');
-        } else {
-            str = str.replace(/,/g, '');
-        }
-
+        if (lastCommaIndex > lastDotIndex) { str = str.replace(/\./g, '').replace(',', '.'); }
+        else { str = str.replace(/,/g, ''); }
         const num = parseFloat(str);
         return isNaN(num) ? 0 : num * sign;
     }
@@ -355,29 +570,9 @@
         return null;
     }
 
-    const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTVh1oeiy7DU-HlcFJR8aga2V77bJ6oSf_8cNWaaX_3IFIIpuva6BUeiZcd0JXFFXzGyUjbmMR5WYrT/pub?gid=1112627830&single=true&output=csv';
-
-    function loadLocalCSV() {
+    function loadData() {
         document.getElementById('loader').style.display = 'flex';
         fetch(SHEETS_URL + '&t=' + Date.now())
-            .then(response => response.text())
-            .then(csvText => processCSV(csvText))
-            .catch(error => {
-                document.getElementById('loader').style.display = 'none';
-                alert('Erro ao carregar dados do Google Sheets: ' + error.message);
-            });
-    }
-
-    function loadFromURL() {
-        const url = document.getElementById('sheet-url').value.trim();
-        if (!url) {
-            alert('Por favor, insira a URL da planilha.');
-            return;
-        }
-        
-        document.getElementById('loader').style.display = 'flex';
-        
-        fetch(url + '&t=' + Date.now())
             .then(response => response.text())
             .then(csvText => processCSV(csvText))
             .catch(error => {
@@ -429,15 +624,7 @@
     }
 
     function updateDataInfo() {
-        const dates = STATE.rawData.map(d => d.dataObj).filter(d => d);
-        if (dates.length > 0) {
-            const minDate = new Date(Math.min(...dates));
-            const maxDate = new Date(Math.max(...dates));
-            const format = d => d.toLocaleDateString('pt-BR');
-            document.getElementById('period-range').textContent = `${format(minDate)} a ${format(maxDate)}`;
-        }
         document.getElementById('records-count').textContent = STATE.rawData.length;
-        document.getElementById('data-info').style.display = 'block';
     }
 
     function classifyData() {
@@ -459,11 +646,8 @@
                 }
             }
 
-            if (isExcluded) {
-                STATE.excludedData.push(item);
-            } else {
-                STATE.operationalData.push(item);
-            }
+            if (isExcluded) STATE.excludedData.push(item);
+            else STATE.operationalData.push(item);
         });
     }
 
@@ -471,9 +655,7 @@
         let baseData = (type === 'excluded') ? [...STATE.excludedData] : [...STATE.operationalData];
         
         if (STATE.filters.start && STATE.filters.end) {
-            baseData = baseData.filter(d => 
-                d.dataObj && d.dataObj >= STATE.filters.start && d.dataObj <= STATE.filters.end
-            );
+            baseData = baseData.filter(d => d.dataObj && d.dataObj >= STATE.filters.start && d.dataObj <= STATE.filters.end);
         }
 
         if (type === 'operational' && STATE.filters.includeProLabore) {
@@ -485,7 +667,6 @@
                 if (!STATE.filters.start || !STATE.filters.end) return true;
                 return d.dataObj && d.dataObj >= STATE.filters.start && d.dataObj <= STATE.filters.end;
             });
-            
             baseData = [...baseData, ...proLaboreData];
         }
 
@@ -511,15 +692,15 @@
         const sumEx = (cc) => d3.sum(exData.filter(d => cc === 'total' || d.cc === cc), d => d.valor);
         
         const html = `
-            <div class="card"><h4>CC 1000 (Op)</h4><div class="value">${formatCurrency(sumOp('1000'))}</div></div>
-            <div class="card"><h4>CC 2000 (Op)</h4><div class="value">${formatCurrency(sumOp('2000'))}</div></div>
-            <div class="card"><h4>CC 2002 (Op)</h4><div class="value">${formatCurrency(sumOp('2002'))}</div></div>
-            <div class="card total"><h4>Total Operacional</h4><div class="value">${formatCurrency(sumOp('total'))}</div></div>
+            <div class="summary-card"><div class="summary-card-label">CC 1000 - Operacional</div><div class="summary-card-value">${formatCurrency(sumOp('1000'))}</div></div>
+            <div class="summary-card"><div class="summary-card-label">CC 2000 - Operacional</div><div class="summary-card-value">${formatCurrency(sumOp('2000'))}</div></div>
+            <div class="summary-card"><div class="summary-card-label">CC 2002 - Operacional</div><div class="summary-card-value">${formatCurrency(sumOp('2002'))}</div></div>
+            <div class="summary-card highlight"><div class="summary-card-label">Total Operacional</div><div class="summary-card-value">${formatCurrency(sumOp('total'))}</div></div>
             
-            <div class="card" style="background:#fff0f0"><h4>CC 1000 (Exc)</h4><div class="value" style="color:#c0392b">${formatCurrency(sumEx('1000'))}</div></div>
-            <div class="card" style="background:#fff0f0"><h4>CC 2000 (Exc)</h4><div class="value" style="color:#c0392b">${formatCurrency(sumEx('2000'))}</div></div>
-            <div class="card" style="background:#fff0f0"><h4>CC 2002 (Exc)</h4><div class="value" style="color:#c0392b">${formatCurrency(sumEx('2002'))}</div></div>
-            <div class="card" style="background:#ffebee; border: 1px solid #ef9a9a;"><h4>Total Excluídos</h4><div class="value" style="color:#b71c1c">${formatCurrency(sumEx('total'))}</div></div>
+            <div class="summary-card danger"><div class="summary-card-label">CC 1000 - Excluídos</div><div class="summary-card-value">${formatCurrency(sumEx('1000'))}</div></div>
+            <div class="summary-card danger"><div class="summary-card-label">CC 2000 - Excluídos</div><div class="summary-card-value">${formatCurrency(sumEx('2000'))}</div></div>
+            <div class="summary-card danger"><div class="summary-card-label">CC 2002 - Excluídos</div><div class="summary-card-value">${formatCurrency(sumEx('2002'))}</div></div>
+            <div class="summary-card danger"><div class="summary-card-label">Total Excluídos</div><div class="summary-card-value">${formatCurrency(sumEx('total'))}</div></div>
         `;
         document.getElementById('summary-panel').innerHTML = html;
     }
@@ -528,53 +709,34 @@
         const target = document.getElementById(STATE.currentTab);
         target.innerHTML = ''; 
 
-        if (STATE.currentTab === 'chart') {
-            renderChart(opData, 'operational', target);
-            return;
-        }
-        if (STATE.currentTab === 'excluded-chart') {
-            renderChart(exData, 'excluded', target);
-            return;
-        }
+        if (STATE.currentTab === 'chart') { renderChart(opData, 'operational', target); return; }
+        if (STATE.currentTab === 'excluded-chart') { renderChart(exData, 'excluded', target); return; }
 
         if (STATE.currentTab.startsWith('cc')) {
             const ccFilter = STATE.currentTab.replace('cc', '');
             const filteredOp = opData.filter(d => d.cc === ccFilter);
             const filteredEx = exData.filter(d => d.cc === ccFilter);
 
-            renderSection(target, `Despesas Operacionais - CC ${ccFilter}`, filteredOp, `op-${ccFilter}`, 'var(--color-orange)');
-            
+            renderSection(target, `Despesas Operacionais - CC ${ccFilter}`, filteredOp, `op-${ccFilter}`, false);
             if (filteredEx.length > 0) {
-                renderSection(target, `Itens Excluídos - CC ${ccFilter}`, filteredEx, `ex-${ccFilter}`, '#c0392b');
-            } else {
-                 const div = document.createElement('div');
-                 div.innerHTML = `<div class="section-header"><div class="section-title">Itens Excluídos - CC ${ccFilter}</div></div><p style="color:#777">Nenhum item excluído para este Centro de Custo no período.</p>`;
-                 target.appendChild(div);
+                renderSection(target, `Itens Excluídos - CC ${ccFilter}`, filteredEx, `ex-${ccFilter}`, true);
             }
             return;
         }
 
-        if (STATE.currentTab === 'total') {
-            renderSection(target, 'Resumo Geral Operacional', opData, 'total-op', 'var(--color-dark-gray)');
-            return;
-        }
-
-        if (STATE.currentTab === 'excluded') {
-            renderSection(target, 'Todos os Itens Excluídos', exData, 'total-ex', '#c0392b');
-            return;
-        }
+        if (STATE.currentTab === 'total') { renderSection(target, 'Resumo Geral Operacional', opData, 'total-op', false); return; }
+        if (STATE.currentTab === 'excluded') { renderSection(target, 'Todos os Itens Excluídos', exData, 'total-ex', true); return; }
     }
 
-    function renderSection(container, title, data, contextId, color) {
+    function renderSection(container, title, data, contextId, isDanger) {
         const total = d3.sum(data, d => d.valor);
-        
         const wrapper = document.createElement('div');
         wrapper.style.marginBottom = '40px';
         
         wrapper.innerHTML = `
-            <div class="section-header" style="border-bottom-color: ${color}">
+            <div class="section-header">
                 <div class="section-title">${title}</div>
-                <div class="section-total" style="color: ${color}">${formatCurrency(total)}</div>
+                <div class="section-total ${isDanger ? 'danger' : ''}">${formatCurrency(total)}</div>
             </div>
         `;
         
@@ -585,20 +747,20 @@
     function renderTableWithFilters(container, data, contextId) {
         const plans = Array.from(new Set(data.map(d => d.plano))).sort();
         
-        const filterDiv = document.createElement('div');
-        filterDiv.className = 'multiselect-container';
-        
         if (data.length === 0) {
-            container.innerHTML += '<p>Sem dados para exibir.</p>';
+            container.innerHTML += '<div class="empty-state"><p>Sem dados para exibir.</p></div>';
             return;
         }
 
+        const filterDiv = document.createElement('div');
+        filterDiv.className = 'multiselect-container';
         filterDiv.innerHTML = `
             <button class="multiselect-btn" onclick="toggleDropdown('${contextId}')">
-                Filtrar Planos (${plans.length}) <span>▼</span>
+                <span>Filtrar Planos (${plans.length})</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
             </button>
             <div id="dropdown-${contextId}" class="multiselect-dropdown">
-                <label class="multiselect-option" style="border-bottom:1px solid #eee; font-weight:bold;">
+                <label class="multiselect-option header">
                     <input type="checkbox" checked onchange="toggleAllOptions(this, '${contextId}')"> Selecionar Todos
                 </label>
                 ${plans.map(p => `
@@ -621,93 +783,60 @@
     window.refreshTable = function(contextId) {
         const dropdown = document.getElementById(`dropdown-${contextId}`);
         const wrapper = dropdown.closest('.multiselect-container').parentElement; 
-        
         const data = JSON.parse(wrapper.dataset.jsonData || '[]');
         const checkboxes = document.querySelectorAll(`.opt-${contextId}:checked`);
         const selectedPlans = Array.from(checkboxes).map(cb => cb.value);
-
         const filtered = data.filter(d => selectedPlans.includes(d.plano));
         const tableDiv = document.getElementById(`table-wrapper-${contextId}`);
-        
         const total = d3.sum(filtered, d => d.valor);
         const headerTotal = wrapper.querySelector('.section-total');
         if(headerTotal) headerTotal.textContent = formatCurrency(total);
-
         drawTable(tableDiv, filtered);
     };
 
     function drawTable(container, data) {
-        const grouped = d3.rollups(data, v => d3.sum(v, d => d.valor), d => d.plano)
-            .sort((a, b) => b[1] - a[1]);
-
+        const grouped = d3.rollups(data, v => d3.sum(v, d => d.valor), d => d.plano).sort((a, b) => b[1] - a[1]);
         const total = d3.sum(grouped, d => d[1]);
 
-        let html = `
-            <table>
-                <thead>
-                    <tr>
-                        <th>Plano Financeiro</th>
-                        <th style="text-align:right">Valor Total</th>
-                        <th style="text-align:right">%</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
+        let html = `<table><thead><tr><th>Plano Financeiro</th><th style="text-align:right">Valor Total</th><th style="text-align:right">%</th></tr></thead><tbody>`;
 
         if (grouped.length === 0) {
-            html += '<tr><td colspan="3" style="text-align:center">Nenhum item selecionado.</td></tr>';
+            html += '<tr><td colspan="3" style="text-align:center;color:var(--gray-500)">Nenhum item selecionado.</td></tr>';
         } else {
             grouped.forEach(([plano, valor]) => {
-                const isCalc = plano.includes('(Calculado)');
                 const pct = total !== 0 ? ((valor/total)*100).toFixed(1) : 0;
-                html += `
-                    <tr class="${isCalc ? 'row-calculated' : ''}">
-                        <td>${plano}</td>
-                        <td style="text-align:right">${formatCurrency(valor)}</td>
-                        <td style="text-align:right">${pct}%</td>
-                    </tr>
-                `;
+                html += `<tr><td>${plano}</td><td style="text-align:right">${formatCurrency(valor)}</td><td style="text-align:right">${pct}%</td></tr>`;
             });
-
-            html += `
-                    <tr style="font-weight:bold; background-color:#eee;">
-                        <td>TOTAL</td>
-                        <td style="text-align:right">${formatCurrency(total)}</td>
-                        <td>100%</td>
-                    </tr>
-                </tbody>
-            </table>`;
+            html += `<tr class="total-row"><td>TOTAL</td><td style="text-align:right">${formatCurrency(total)}</td><td style="text-align:right">100%</td></tr>`;
         }
-
+        html += '</tbody></table>';
         container.innerHTML = html;
     }
 
     function renderChart(data, type, container) {
-        const grouped = d3.rollups(data, v => d3.sum(v, d => d.valor), d => d.plano)
-            .sort((a, b) => b[1] - a[1]);
-
+        const grouped = d3.rollups(data, v => d3.sum(v, d => d.valor), d => d.plano).sort((a, b) => b[1] - a[1]);
         const x = grouped.map(d => d[0]);
         const y = grouped.map(d => d[1]);
-        const color = type === 'operational' ? '#FF7F0E' : '#c0392b';
-
+        const color = type === 'operational' ? '#6366f1' : '#ef4444';
         const shortX = x.map(lbl => lbl.length > 25 ? lbl.substring(0, 25) + '...' : lbl);
 
         const trace = {
-            x: shortX,
-            y: y,
-            type: 'bar',
+            x: shortX, y: y, type: 'bar',
             text: y.map(val => formatCurrency(val)),
             textposition: 'auto',
-            marker: { color: color },
+            marker: { color: color, cornerradius: 4 },
             hoverinfo: 'x+text',
             hovertext: x.map((n, i) => `${n}<br>${formatCurrency(y[i])}`)
         };
 
         const layout = {
-            title: type === 'operational' ? 'Despesas Operacionais por Plano' : 'Despesas Excluídas por Plano',
-            margin: { b: 150 },
-            xaxis: { tickangle: -45 },
-            height: 500
+            title: { text: type === 'operational' ? 'Despesas Operacionais por Plano' : 'Despesas Excluídas por Plano', font: { size: 16, family: 'Inter', color: '#374151' } },
+            margin: { b: 150, t: 50 },
+            xaxis: { tickangle: -45, tickfont: { size: 11 } },
+            yaxis: { tickfont: { size: 11 } },
+            height: 500,
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent'
         };
 
         Plotly.newPlot(container, [trace], layout, {responsive: true});
@@ -731,13 +860,10 @@
 
     window.switchTab = function(tabId) {
         STATE.currentTab = tabId;
-        
-        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         event.target.classList.add('active');
-        
         document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
-        
         const opData = getFilteredData('operational');
         const exData = getFilteredData('excluded');
         renderCurrentTab(opData, exData);
@@ -754,18 +880,14 @@
     };
 
     window.onclick = function(event) {
-        if (!event.target.matches('.multiselect-btn') && !event.target.matches('.multiselect-btn span')) {
+        if (!event.target.matches('.multiselect-btn') && !event.target.matches('.multiselect-btn *')) {
             document.querySelectorAll('.multiselect-dropdown').forEach(d => {
-                if (d.classList.contains('show') && !d.contains(event.target)) {
-                    d.classList.remove('show');
-                }
+                if (d.classList.contains('show') && !d.contains(event.target)) d.classList.remove('show');
             });
         }
     }
 
-    // Carregar automaticamente o CSV local ao iniciar
-    loadLocalCSV();
-
+    loadData();
 </script>
 </body>
 </html>
