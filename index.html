@@ -601,7 +601,7 @@
     </div>
 
 <script>
-    const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTkiy-n--R8fAEJJQD2Axayu6LbLSOfYLZsJxQ49xDp560RUzUtH1CeivSvAO71fmE_6sbSAfHvud2Z/pub?gid=1605452357&single=true&output=csv';
+    const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1wR5wG_UQzgQcqFpcuMSREd-0smm23pemOgm2DZp8qPI/export?format=csv&gid=1605452357';
 
     const EXCLUSION_RULES = {
         exact: [
@@ -939,13 +939,14 @@
     }
 
     function setupInitialFilters() {
-        const dates = STATE.rawData.map(d => d.dataObj).filter(d => d);
-        if (dates.length > 0) {
-            const minDate = new Date(Math.min(...dates));
-            const maxDate = new Date(Math.max(...dates));
-            document.getElementById('start-date').value = minDate.toISOString().split('T')[0];
-            document.getElementById('end-date').value = maxDate.toISOString().split('T')[0];
-        }
+        // Padrão: últimos 3 meses JÁ FECHADOS (exclui o mês corrente).
+        // Ex.: hoje 11/08 -> de 01/05 até 31/07.
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth() - 3, 1); // 1o dia, 3 meses atrás
+        const end = new Date(now.getFullYear(), now.getMonth(), 0);       // último dia do mês anterior
+        const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        document.getElementById('start-date').value = fmt(start);
+        document.getElementById('end-date').value = fmt(end);
     }
 
     function setupEventListeners() {
